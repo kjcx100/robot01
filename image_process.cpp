@@ -89,6 +89,29 @@ void BTCommunThread::run()
 
 }
 
+//===============================================================
+//select方式延时： 替代usleep(usleep 跟系统时间相关)
+//===============================================================
+void MY_SLEEP_MS(int ms)
+{
+	struct timeval delay;
+
+	delay.tv_sec  = 0;
+	delay.tv_usec = ms * 1000;
+
+	select(0, NULL, NULL, NULL, &delay);
+}
+
+void MY_SLEEP_NS(int s)
+{
+	struct timeval delay;
+
+	delay.tv_sec  = s;
+	delay.tv_usec = 0;
+
+	select(0, NULL, NULL, NULL, &delay);
+}
+
 struct CallbackData {
 	int             index;
 	TY_DEV_HANDLE   hDevice;
@@ -97,7 +120,7 @@ struct CallbackData {
 	TY_CAMERA_DISTORTION color_dist;
 	TY_CAMERA_INTRINSIC color_intri;
 };
-bool verifySizes(Rect mr) {
+bool ImageProcessThread::verifySizes(Rect mr) {
 	// Set a min and max area. All other patchs are discarded
 	int min = 400 * 2;  // minimum area
 	int max = 568 * 340;  // maximum area
@@ -115,7 +138,7 @@ bool verifySizes(Rect mr) {
 }
 //  calc safe Rect
 //  if not exit, return false
-bool calcSafeRect(const RotatedRect &roi_rect, const Mat &src,
+bool ImageProcessThread::calcSafeRect(const RotatedRect &roi_rect, const Mat &src,
 	Rect_<float> &safeBoundRect) {
 	Rect_<float> boudRect = roi_rect.boundingRect();
 
@@ -139,7 +162,7 @@ bool calcSafeRect(const RotatedRect &roi_rect, const Mat &src,
 	return true;
 }
 
-void depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat* newDepth, cv::Mat* blackDepth)
+void ImageProcessThread::depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat* newDepth, cv::Mat* blackDepth)
 {
 	int i=0;
 	uint16_t dst_data[480*640];
@@ -193,7 +216,7 @@ void depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat* newDepth, cv::Mat* 
 	*blackDepth = cv::Mat(480, 640, CV_16U, blk_data);
 }
 
-int DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color, int blurSize, int morphW, int morphH)
+int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color, int blurSize, int morphW, int morphH)
 {
 	int SOBEL_SCALE = 0;
 	int SOBEL_DELTA = 0.5;
@@ -422,7 +445,7 @@ int DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color, int blurSize, int 
 	return 0;
 }
 
-void handleFrame(TY_FRAME_DATA* frame, void* userdata ,void* tempdata)
+void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void* tempdata)
 {
 	CallbackData* pData = (CallbackData*)userdata;
 	LOGD("=== Get frame %d", ++pData->index);
@@ -533,7 +556,7 @@ void handleFrame(TY_FRAME_DATA* frame, void* userdata ,void* tempdata)
 	ASSERT_OK(TYEnqueueBuffer(pData->hDevice, frame->userBuffer, frame->bufferSize));
 }
 
-void eventCallback(TY_EVENT_INFO *event_info, void *userdata)
+void ImageProcessThread::eventCallback(TY_EVENT_INFO *event_info, void *userdata)
 {
 	if (event_info->eventId == TY_EVENT_DEVICE_OFFLINE) {
 		LOGD("=== Event Callback: Device Offline!");
@@ -543,29 +566,6 @@ void eventCallback(TY_EVENT_INFO *event_info, void *userdata)
 	else if (event_info->eventId == TY_EVENT_LICENSE_ERROR) {
 		LOGD("=== Event Callback: License Error!");
 	}
-}
-
-//===============================================================
-//select方式延时： 替代usleep(usleep 跟系统时间相关)
-//===============================================================
-void MY_SLEEP_MS(int ms)
-{
-	struct timeval delay;
-
-	delay.tv_sec  = 0;
-	delay.tv_usec = ms * 1000;
-
-	select(0, NULL, NULL, NULL, &delay);
-}
-
-void MY_SLEEP_NS(int s)
-{
-	struct timeval delay;
-
-	delay.tv_sec  = s;
-	delay.tv_usec = 0;
-
-	select(0, NULL, NULL, NULL, &delay);
 }
 
 
