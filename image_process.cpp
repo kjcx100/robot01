@@ -17,6 +17,8 @@ static volatile bool save_frame;
 
 Mat g_cvimg;
 
+#define CVIMGSHOW   0
+
 //另一个线程读取图像
 BTCommunThread::BTCommunThread(QObject *parent) :
     QThread(parent)
@@ -33,6 +35,7 @@ void BTCommunThread::run()
     printf("ok:Open BTCommunThread!\n");
     qDebug("ok:Open BTCommunThread!\n");
     int count = 0;
+    #if 0
     const char* IP = NULL;
     const char* ID = NULL;
     TY_DEV_HANDLE hDevice;
@@ -60,6 +63,7 @@ void BTCommunThread::run()
         return ;
     }
     fclose(filetmp);
+    #endif
     char szFilename[32] = {0};
     while(1)
     {
@@ -371,7 +375,9 @@ int DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color, int blurSize, int 
 	}
 	//out = mat_threshold;
 	//namedWindow("in_add_rect");
+    #if CVIMGSHOW
 	imshow("in_add_rect", depthColor);
+    #endif
 	//cvWaitKey(0);
 	//destroyWindow("in_add_rect");
 	char jpgin_add_rect[1024] = { 0 };
@@ -389,7 +395,9 @@ int DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color, int blurSize, int 
 	morphologyEx(mat_threshold, mat_threshold, MORPH_CLOSE, element);
 
 	//namedWindow("morphologyEx");
+    #if CVIMGSHOW
 	imshow("morphologyClose", mat_threshold);
+    #endif
 	if (save_frame) {
 		LOGD(">>>>>>>>>> write morphologyClose");
 		imwrite("morphologyClose.png", mat_threshold);
@@ -422,7 +430,7 @@ void handleFrame(TY_FRAME_DATA* frame, void* userdata ,void* tempdata)
 	cv::Mat depth, irl, irr, color, point3D;
 	parseFrame(*frame, &depth, &irl, &irr, &color, &point3D);
     //lxl add test at 12-11
-    return ;	
+    //return ;
 	#if 0
 	if (!depth.empty()){
 				/////lxl add///////
@@ -467,7 +475,9 @@ void handleFrame(TY_FRAME_DATA* frame, void* userdata ,void* tempdata)
 
 		depthTransfer(newDepth, (uint16_t*)tempdata, &TransDepth, &blackDepth);
 		cv::resize(color, resized_color, depth.size());
+        #if CVIMGSHOW
 		cv::imshow("resizedColor", resized_color);
+        #endif
 		if (save_frame){
 			LOGD(">>>>>>>>>> write resized_color");
 			imwrite("resized_color.png", resized_color);
@@ -482,14 +492,16 @@ void handleFrame(TY_FRAME_DATA* frame, void* userdata ,void* tempdata)
 			//save_frame = false;
 		}
 		depthColor = depthColor / 2 + resized_color / 2;
+        #if CVIMGSHOW
 		cv::imshow("projected depth", depthColor);
+        #endif
 		std::cout << "depthColor.channels:" << depthColor.channels() << "  rows:" << depthColor.rows << "  cols:" << depthColor.cols << std::endl;
 		if (save_frame){
 			LOGD(">>>>>>>>>> write projected_depth");
 			imwrite("projected_depth.png", depthColor);
 			//save_frame = false;
 		}
-		DeepImgFinds_write_rgb(depthColor,resized_color, 3, 7, 7);
+        DeepImgFinds_write_rgb(depthColor,resized_color, 3, 7, 7);
 	}
 	#endif
 	if (save_frame){
@@ -499,7 +511,8 @@ void handleFrame(TY_FRAME_DATA* frame, void* userdata ,void* tempdata)
 		save_frame = false;
 	}
 	//cv::namedWindow("key");
-	int key = cv::waitKey(1);
+    int key = -1;
+    //int key = cv::waitKey(1);
 	//LOGD(">>>>>>>>>>key==%d\n", key);
 	switch (key){
 	case -1:
@@ -711,7 +724,7 @@ void ImageProcessThread::run()
 		else {
             handleFrame(&frame, &cb_data , (void*)tmpbuffer);
 		}
-        MY_SLEEP_NS(1);
+        MY_SLEEP_MS(10);
         //usleep(2000);
 	}
 
