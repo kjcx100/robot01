@@ -46,6 +46,7 @@ public:
 	
 signals: 
 	void EmitFrameMessage(cv::Mat* stFrameItem, int nCh = 0); 
+	void EmitOutFrameMessage(cv::Mat* stFrameItem, int nCh = 0); 
 
 };
 #endif // IMAGE_PROCESS_H

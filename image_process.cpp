@@ -439,6 +439,7 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 	//strncpy_s(write_rgbname, filename + st_len_dirout, strlen(filename) - 4 - st_len_dirout);
 	//sprintf_s(rgbjpgfile, "./outdir%s__rgb_rect.jpg", write_rgbname);
 	//imwrite(rgbjpgfile, In_rgb);
+	emit EmitOutFrameMessage(&In_rgb,0);
 	if (save_frame) {
 		LOGD(">>>>>>>>>> write resized_color add rect");
 		imwrite("rect_resized_color.png", In_rgb);

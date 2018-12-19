@@ -22,6 +22,7 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     void SetImageData(uchar* data,int imgcols,int imgrows);
 	void SetImageQimage(QImage *img);
+	void SetImageOutImg(QImage *img);	
     void SetImageMat(Mat *cvmat);
     ~MainWindow();
 
@@ -30,6 +31,7 @@ private slots:
     void call_timerDone_500ms();
     void call_timerDone_1s();
 	void EmitFrameMessage(cv::Mat* stFrameItem, int nCh = 0);
+	void EmitOutFrameMessage(cv::Mat* stFrameItem, int nCh = 0);
 
 private:
     Ui::MainWindow *ui;

@@ -5,6 +5,7 @@ static int Timer_Count = 0;
 
 extern cv::Mat g_cvimg;
 QImage		   g_VideoImage;
+QImage		   g_VideoImageOut;
 
 ImageProcessThread m_ImageProcessThread;
 
@@ -38,7 +39,7 @@ MainWindow::MainWindow(QWidget *parent) :
     m_ImageProcessThread.start();
 	qDebug("m_ImageProcessThread start!!!%d\n",__LINE__);
 	connect(&m_ImageProcessThread, SIGNAL(EmitFrameMessage(cv::Mat*, int)), this, SLOT(EmitFrameMessage(cv::Mat*, int)));
-
+	connect(&m_ImageProcessThread, SIGNAL(EmitOutFrameMessage(cv::Mat*, int)), this, SLOT(EmitOutFrameMessage(cv::Mat*, int)));
 }
 
 void MainWindow::call_timerDone_500ms()
@@ -108,6 +109,14 @@ void MainWindow::SetImageQimage(QImage *img)
         ui->RawImg->setPixmap(QPixmap::fromImage(*img));
     }
 }
+void MainWindow::SetImageOutImg(QImage *img)
+{
+    if(img != NULL) {
+        //设定图像大小自适应label窗口的大小
+        img->scaled(ui->OutImg->size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        ui->OutImg->setPixmap(QPixmap::fromImage(*img));
+    }
+}
 
 void MainWindow::SetImageMat(Mat *cvmat)
 {
@@ -129,6 +138,16 @@ void MainWindow::EmitFrameMessage(cv::Mat* stFrameItem, int nCh)
 	g_VideoImage = QImage((const unsigned char*)(stFrameItem->data),stFrameItem->cols, stFrameItem->rows, QImage::Format_RGB888);
 	//g_VideoImage = g_VideoImage.mirrored(false, true);
     SetImageQimage(&g_VideoImage);
+}
+void MainWindow::EmitOutFrameMessage(cv::Mat* stFrameItem, int nCh)
+{
+	printf("###[%s][%d], in!!!\n", __func__, __LINE__);
+	if(pVideoImage == NULL)
+		return;
+	//g_VideoImage = g_Video_cBtoQI[nCh].BMP24ToQImage24(szBmp + 54, stFrameItem.dwWidth, stFrameItem.dwHeight, stFrameItem.dwWidth * 3, 0);
+	g_VideoImageOut = QImage((const unsigned char*)(stFrameItem->data),stFrameItem->cols, stFrameItem->rows, QImage::Format_RGB888);
+	//g_VideoImage = g_VideoImage.mirrored(false, true);
+    SetImageOutImg(&g_VideoImageOut);
 }
 
 
