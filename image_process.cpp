@@ -475,6 +475,8 @@ void handleFrame(TY_FRAME_DATA* frame, void* userdata ,void* tempdata)
 
 		depthTransfer(newDepth, (uint16_t*)tempdata, &TransDepth, &blackDepth);
 		cv::resize(color, resized_color, depth.size());
+		emit EmitFrameMessage(&resized_color,0);
+		printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);
         #if CVIMGSHOW
 		cv::imshow("resizedColor", resized_color);
         #endif
@@ -588,7 +590,8 @@ void ImageProcessThread::run()
 	int m_hight = 480;
     qDebug("ImageProcessThread::run=%d\n",__LINE__);
 	FILE *filetmp;
-    const char* tempimg = "/home/apple/qt_prj/build-robot01-Desktop_Qt_5_10_1_GCC_64bit-Debug/template.yuv";
+    //const char* tempimg = "/home/apple/qt_prj/build-robot01-Desktop_Qt_5_10_1_GCC_64bit-Debug/template.yuv";
+    const char* tempimg = "./template.yuv";
 	filetmp = fopen( tempimg, "rb");
 	if (NULL == filetmp)
 	{

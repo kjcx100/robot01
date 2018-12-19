@@ -3,8 +3,10 @@
 #include "include/image_process.h"
 static int Timer_Count = 0;
 
-extern Mat g_cvimg;
-//ImageProcessThread m_ImageProcessThread;
+extern cv::Mat g_cvimg;
+QImage		   g_VideoImage;
+
+ImageProcessThread m_ImageProcessThread;
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -13,6 +15,12 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     //ui->RawImg->show();
     //ui->OutImg->show();
+	pVideoImage = new PictureBox(this);
+	if(pVideoImage != NULL)
+	{	        
+		pVideoImage->setMode((AUTO_FILL));
+        pVideoImage->hide();
+	}
     //Time  1s
     pTimer500ms = new QTimer(this);
     if(pTimer500ms)
@@ -25,8 +33,11 @@ MainWindow::MainWindow(QWidget *parent) :
     if(pTimer1S)
     {
         connect( pTimer1S, SIGNAL(timeout()), this, SLOT(call_timerDone_1s()) );
-        pTimer1S->start(1000);              // 1秒单触发定时器
+        //pTimer1S->start(1000);              // 1秒单触发定时器
     }
+    m_ImageProcessThread.start();
+	qDebug("m_ImageProcessThread start!!!%d\n",__LINE__);
+	connect(&m_ImageProcessThread, SIGNAL(EmitFrameMessage(cv::Mat*, int)), this, SLOT(EmitFrameMessage(cv::Mat*, int)));
 
 }
 
@@ -52,15 +63,15 @@ void MainWindow::on_TempBtn_clicked()
                                                     tr("Image file(*.png *.jpg *.bmp)"));
     qDebug("filename=%s\n",filename.toLocal8Bit().data());
     image = cv::imread(filename.toLocal8Bit().data(),1);
-    //if(image.data) {
-    //    ui->pushButton_2->setEnabled(true);
-    //}
-    //将Mat图像转换为QImage图像，才能显示在label上
-    QImage img = QImage((const unsigned char*)(image.data),
-                        image.cols, image.rows, QImage::Format_RGB888);
-    //设定图像大小自适应label窗口的大小
-    img = img.scaled(ui->RawImg->size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    ui->RawImg->setPixmap(QPixmap::fromImage(img));
+	if(image.data) {
+	    //    ui->pushButton_2->setEnabled(true);
+	    //将Mat图像转换为QImage图像，才能显示在label上
+	    QImage img = QImage((const unsigned char*)(image.data),
+	                        image.cols, image.rows, QImage::Format_RGB888);
+	    //设定图像大小自适应label窗口的大小
+	    img = img.scaled(ui->RawImg->size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+	    ui->RawImg->setPixmap(QPixmap::fromImage(img));
+	}
 }
 void MainWindow::call_timerDone_1s()
 {
@@ -89,6 +100,15 @@ void MainWindow::SetImageData(uchar* data,int imgcols,int imgrows)
         ui->RawImg->setPixmap(QPixmap::fromImage(img));
     }
 }
+void MainWindow::SetImageQimage(QImage *img)
+{
+    if(img.d.data != NULL) {
+        //设定图像大小自适应label窗口的大小
+        img = img.scaled(ui->RawImg->size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        ui->RawImg->setPixmap(QPixmap::fromImage(img));
+    }
+}
+
 void MainWindow::SetImageMat(Mat *cvmat)
 {
     if(cvmat->data != NULL) {
@@ -99,6 +119,16 @@ void MainWindow::SetImageMat(Mat *cvmat)
         img = img.scaled(ui->RawImg->size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
         ui->OutImg->setPixmap(QPixmap::fromImage(img));
     }
+}
+viod MainWindow::EmitFrameMessage(cv::Mat* stFrameItem, int nCh = 0)
+{
+	printf("###[%s][%d], in!!!\n", __func__, __LINE__);
+	if(pVideoImage == NULL)
+		return;
+	//g_VideoImage = g_Video_cBtoQI[nCh].BMP24ToQImage24(szBmp + 54, stFrameItem.dwWidth, stFrameItem.dwHeight, stFrameItem.dwWidth * 3, 0);
+	g_VideoImage = QImage((const unsigned char*)(stFrameItem->data),stFrameItem->cols, stFrameItem->rows, QImage::Format_RGB888);
+	//g_VideoImage = g_VideoImage.mirrored(false, true);
+	SetImageQimage(g_VideoImage);
 }
 
 
