@@ -102,10 +102,10 @@ void MainWindow::SetImageData(uchar* data,int imgcols,int imgrows)
 }
 void MainWindow::SetImageQimage(QImage *img)
 {
-    if(img.d.data != NULL) {
+    if(img != NULL) {
         //设定图像大小自适应label窗口的大小
-        img = img.scaled(ui->RawImg->size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-        ui->RawImg->setPixmap(QPixmap::fromImage(img));
+        img->scaled(ui->RawImg->size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        ui->RawImg->setPixmap(QPixmap::fromImage(*img));
     }
 }
 
@@ -120,7 +120,7 @@ void MainWindow::SetImageMat(Mat *cvmat)
         ui->OutImg->setPixmap(QPixmap::fromImage(img));
     }
 }
-viod MainWindow::EmitFrameMessage(cv::Mat* stFrameItem, int nCh = 0)
+void MainWindow::EmitFrameMessage(cv::Mat* stFrameItem, int nCh)
 {
 	printf("###[%s][%d], in!!!\n", __func__, __LINE__);
 	if(pVideoImage == NULL)
@@ -128,7 +128,7 @@ viod MainWindow::EmitFrameMessage(cv::Mat* stFrameItem, int nCh = 0)
 	//g_VideoImage = g_Video_cBtoQI[nCh].BMP24ToQImage24(szBmp + 54, stFrameItem.dwWidth, stFrameItem.dwHeight, stFrameItem.dwWidth * 3, 0);
 	g_VideoImage = QImage((const unsigned char*)(stFrameItem->data),stFrameItem->cols, stFrameItem->rows, QImage::Format_RGB888);
 	//g_VideoImage = g_VideoImage.mirrored(false, true);
-	SetImageQimage(g_VideoImage);
+    SetImageQimage(&g_VideoImage);
 }
 
 

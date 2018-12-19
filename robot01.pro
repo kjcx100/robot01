@@ -47,12 +47,15 @@ HEADERS += \
     include/TYImageProc.h \
     define.h \
     mainwindow.h \
-    include/image_process.h
+    include/image_process.h \
+    include/image_process.h \
+    include/picturebox.h
 
 SOURCES += \
     main.cpp \
     mainwindow.cpp \
-    image_process.cpp
+    image_process.cpp \
+    picturebox.cpp
 
 win32:CONFIG(release, debug|release): LIBS += -L$$PWD/lib_x64/release/ -ltycam
 else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/lib_x64/debug/ -ltycam
