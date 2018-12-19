@@ -5,6 +5,7 @@
 
 #include "include/image_process.h"
 #include "../common/common.hpp"
+
 using namespace std;
 using namespace cv;
 
@@ -120,7 +121,7 @@ struct CallbackData {
 	TY_CAMERA_DISTORTION color_dist;
 	TY_CAMERA_INTRINSIC color_intri;
 };
-bool ImageProcessThread::verifySizes(Rect mr) {
+bool ImageProcessThread::verifySizes(cv::Rect mr) {
 	// Set a min and max area. All other patchs are discarded
 	int min = 400 * 2;  // minimum area
 	int max = 568 * 340;  // maximum area
@@ -556,7 +557,7 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 	ASSERT_OK(TYEnqueueBuffer(pData->hDevice, frame->userBuffer, frame->bufferSize));
 }
 
-void ImageProcessThread::eventCallback(TY_EVENT_INFO *event_info, void *userdata)
+void eventCallback(TY_EVENT_INFO *event_info, void *userdata)
 {
 	if (event_info->eventId == TY_EVENT_DEVICE_OFFLINE) {
 		LOGD("=== Event Callback: Device Offline!");

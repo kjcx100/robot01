@@ -1,4 +1,4 @@
-#include "picturebox.h"
+#include "include/picturebox.h"
 #include <QPainter>
 #include <QDebug>
 static const int IMAGE_WIDTH  = 160;
