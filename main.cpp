@@ -6,13 +6,25 @@
 //ImageProcessThread m_ImageProcessThread;
 //ImageDispThread m_ImageDispThread;
 BTCommunThread m_BTCommunThread;
+CAMMER_PARA_S g_SysParam;
+QString		curr_path;
+
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
     qDebug("main start!!!%d\n",__LINE__);
     MainWindow w;
-    w.show();
+    w.show();    
+	QDir dir;
+    curr_path = APP_PATH;			//"/FaceGate";	//dir.currentPath();
+	QString	curr_path_tmp = dir.currentPath();
+	
+    qDebug( "curr path = %s\n",		qPrintable(curr_path));
+	qDebug( "curr_path_tmp = %s\n",	qPrintable(curr_path_tmp));
+	GetCammerSetParamFile(&g_SysParam);
+
+	w.SetUIDispParam(&g_SysParam);
     qDebug("main start!!!%d\n",__LINE__);
     m_BTCommunThread.start();
 

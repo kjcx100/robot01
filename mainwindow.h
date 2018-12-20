@@ -8,6 +8,7 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include "include/picturebox.h"
+#include "define.h"
 using namespace cv;
 
 namespace Ui {
@@ -24,6 +25,7 @@ public:
 	void SetImageQimage(QImage *img);
 	void SetImageOutImg(QImage *img);	
     void SetImageMat(Mat *cvmat);
+	int SetUIDispParam(CAMMER_PARA_S* pstparam);
     ~MainWindow();
 
 private slots:
@@ -32,6 +34,8 @@ private slots:
     void call_timerDone_1s();
 	void EmitFrameMessage(cv::Mat* stFrameItem, int nCh = 0);
 	void EmitOutFrameMessage(cv::Mat* stFrameItem, int nCh = 0);
+
+    void on_SaveBtn_clicked();
 
 private:
     Ui::MainWindow *ui;
@@ -54,4 +58,10 @@ public:
     void run();
     void stop();
 };
+
+int SetUIDispParam(CAMMER_PARA_S* pstparam);
+int GetCammerSetParam(CAMMER_PARA_S* pstparam);
+int GetCammerSetParamFile(CAMMER_PARA_S* pstparam);
+int SetCammerSetParamFile(CAMMER_PARA_S* pstparam);
+
 #endif // MAINWINDOW_H

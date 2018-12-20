@@ -584,7 +584,7 @@
      <string>阀值</string>
     </property>
    </widget>
-   <widget class="QLineEdit" name="GussBlurSize_2">
+   <widget class="QLineEdit" name="threshold_val">
     <property name="enabled">
      <bool>true</bool>
     </property>
@@ -675,7 +675,7 @@
      <string>调整频次</string>
     </property>
    </widget>
-   <widget class="QLineEdit" name="calib_horizon_2">
+   <widget class="QLineEdit" name="Gain_min">
     <property name="enabled">
      <bool>true</bool>
     </property>
@@ -701,7 +701,7 @@
      <string>最大值</string>
     </property>
    </widget>
-   <widget class="QLineEdit" name="calib_vertical_2">
+   <widget class="QLineEdit" name="Gain_max">
     <property name="enabled">
      <bool>true</bool>
     </property>
@@ -825,7 +825,7 @@
      <x>0</x>
      <y>0</y>
      <width>1280</width>
-     <height>28</height>
+     <height>25</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuCamSet">

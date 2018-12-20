@@ -399,6 +399,7 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 	}
 	//out = mat_threshold;
 	//namedWindow("in_add_rect");
+	//emit EmitOutFrameMessage(&depthColor,0);
     #if CVIMGSHOW
 	imshow("in_add_rect", depthColor);
     #endif
@@ -439,7 +440,9 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 	//strncpy_s(write_rgbname, filename + st_len_dirout, strlen(filename) - 4 - st_len_dirout);
 	//sprintf_s(rgbjpgfile, "./outdir%s__rgb_rect.jpg", write_rgbname);
 	//imwrite(rgbjpgfile, In_rgb);
-	emit EmitOutFrameMessage(&In_rgb,0);
+	Mat OutDisp = In_rgb;
+	emit EmitOutFrameMessage(&OutDisp,0);
+	printf("###[%s][%d], EmitOutFrameMessage\n", __func__, __LINE__);
 	if (save_frame) {
 		LOGD(">>>>>>>>>> write resized_color add rect");
 		imwrite("rect_resized_color.png", In_rgb);
@@ -500,8 +503,6 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 
 		depthTransfer(newDepth, (uint16_t*)tempdata, &TransDepth, &blackDepth);
 		cv::resize(color, resized_color, depth.size());
-		emit EmitFrameMessage(&resized_color,0);
-		printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);
         #if CVIMGSHOW
 		cv::imshow("resizedColor", resized_color);
         #endif
@@ -513,6 +514,8 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		//lxl add output grayimg
 		pData->render->SetColorType(DepthRender::COLORTYPE_GRAY);
 		cv::Mat depthColor = pData->render->Compute(TransDepth);
+		emit EmitFrameMessage(&depthColor,0);
+		printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);
 		if (save_frame){
 			LOGD(">>>>>>>>>> write depthColor");
 			imwrite("TransdepthColor.png", depthColor);
@@ -729,7 +732,7 @@ void ImageProcessThread::run()
 		else {
             handleFrame(&frame, &cb_data , (void*)tmpbuffer);
 		}
-        MY_SLEEP_MS(10);
+        MY_SLEEP_MS(100);
         //usleep(2000);
 	}
 
