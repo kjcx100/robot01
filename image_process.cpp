@@ -15,6 +15,8 @@ static char tmpbuffer[1024 * 1024 * 20];
 static int  n;
 static volatile bool exit_main;
 static volatile bool save_frame;
+static volatile bool save_rect_color;
+static int gsave_rect_count = 0;
 
 Mat g_cvimg;
 
@@ -217,6 +219,29 @@ void ImageProcessThread::depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat*
 	*blackDepth = cv::Mat(480, 640, CV_16U, blk_data);
 }
 
+cv::Mat ImageProcessThread::cvMatRect2Tetra(cv::Mat mtxSrc, int iDstX1, int iDstY1, int iDstX2, int iDstY2,
+						int iDstX3, int iDstY3, int iDstX4, int iDstY4, int iDstWidth, int iDstHeight)
+{
+	cv::Mat mtxDst;
+	std::vector<cv::Point2f> src_corners(4);
+	std::vector<cv::Point2f> dst_corners(4);
+ 
+	src_corners[0]= cv::Point2f(0,0);
+	src_corners[1]= cv::Point2f(mtxSrc.cols - 1,0);
+	src_corners[2]= cv::Point2f(0, mtxSrc.rows - 1);
+	src_corners[3]= cv::Point2f(mtxSrc.cols - 1, mtxSrc.rows - 1);
+ 
+	dst_corners[0] = cv::Point2f(iDstX1, iDstY1);
+	dst_corners[1] = cv::Point2f(iDstX2, iDstY2);
+	dst_corners[2] = cv::Point2f(iDstX3, iDstY3);
+	dst_corners[3] = cv::Point2f(iDstX4, iDstY4);
+ 
+	cv::Mat transMtx = cv::getPerspectiveTransform(src_corners, dst_corners);
+	cv::warpPerspective(mtxSrc, mtxDst, transMtx, cv::Size(iDstWidth, iDstHeight));
+ 
+	return mtxDst;
+}
+
 int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color, int blurSize, int morphW, int morphH)
 {
 	int SOBEL_SCALE = 0;
@@ -295,22 +320,10 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 		{
 			if (verifySizes(safeBoundRect)) {
 				first_rects.push_back(safeBoundRect);
-				//cout << "first_rects.size==" << first_rects.size() << endl;
-				cout << "safeBoundRect.area:" << safeBoundRect.area() << endl;
-				cout << "safeBoundRect.x:"<< safeBoundRect.x<<"  y:"<< safeBoundRect.y<<"  width:"<< safeBoundRect.width <<"  height:"  
-					 << safeBoundRect.height << endl;
-				/*
-				Mat image_rects = mat_threshold(safeBoundRect);
-				namedWindow("image_rects");
-				imshow("image_rects", image_rects);
-				cvWaitKey(0);
-				destroyWindow("image_rects");
-				char jpgfile_rects[1024] = { 0 };
-				sprintf_s(jpgfile_rects, "%s_image_rects_%d.jpg", filename, first_rects.size());
-				//imwrite(jpgfile_rects, image_rects);
-				*/
+				//cout << "safeBoundRect.area:" << safeBoundRect.area() << endl;
 				rectangle(depthColor, safeBoundRect, Scalar(0, 0, 255));
 				rectangle(In_rgb, safeBoundRect, Scalar(0, 255, 255));
+				#if 0	//lxl add 2018-12-21 暂时不用rgb检测物体
 				double safecontourArea = contourArea(Mat(*itc));
 				//取出检测到的区域 and canny
 				Mat imageIn_rects = In_rgb(safeBoundRect);
@@ -359,6 +372,7 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 					LOGD(">>>>>>>>>> write imageIn_rects");
 					imwrite(szimageIn_rects, imageIn_rects);
 				}
+				#endif
 				for (int j = 0; j < contours[Count_contours].size(); j++)
 				{
 					//绘制出contours向量内所有的像素点
@@ -372,7 +386,7 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 			{
 				rectangle(depthColor, safeBoundRect, Scalar(0, 255, 0));
 				Mat FillImg = Mat::zeros(safeBoundRect.height, safeBoundRect.width, CV_8UC1);
-				cout << "FillImg.cols:" << FillImg.cols << "  FillImg.rows:" << FillImg.rows << endl;
+				//cout << "FillImg.cols:" << FillImg.cols << "  FillImg.rows:" << FillImg.rows << endl;
 				Rect fillRect = safeBoundRect;
 				Mat imageROI = mat_threshold(fillRect);
 				floodFill(imageROI, Point2f(imageROI.cols >> 1, imageROI.rows >> 1), 0);
@@ -384,35 +398,25 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 					Point P = Point(contours[Count_contours][j].x, contours[Count_contours][j].y);
 					mat_threshold.at<uchar>(P) = 0;
 				}
-				{
-					//Mat FillImg = Mat::zeros(safeBoundRect.height, safeBoundRect.width, CV_8UC1);
-					//cout << "FillImg.cols:" << FillImg.cols << "  FillImg.rows:" << FillImg.rows << endl;
-					////cout << "safeBoundRect.angle:" << safeBoundRect.angle << endl;
-					//Rect fillRect = safeBoundRect;
-					//Mat imageROI = mat_threshold(fillRect);
-					//FillImg.copyTo(imageROI);
-				}
 			}
 		}
 		++itc;
 		++Count_contours;
 	}
-	//out = mat_threshold;
-	//namedWindow("in_add_rect");
-	//emit EmitOutFrameMessage(&depthColor,0);
     #if CVIMGSHOW
 	imshow("in_add_rect", depthColor);
     #endif
-	//cvWaitKey(0);
-	//destroyWindow("in_add_rect");
-	char jpgin_add_rect[1024] = { 0 };
-	char name[1024] = { 0 };
-	//strncpy_s(name, filename + st_len_dirout, strlen(filename) - 4 - st_len_dirout);
-	//sprintf_s(jpgin_add_rect, "./outdir%s_in_add_rect.jpg", name);
-	//imwrite(jpgin_add_rect, in);
+	//emit EmitOutFrameMessage(&depthColor,0);
+	//printf("###[%s][%d], EmitOutFrameMessage\n", __func__, __LINE__);
 	if (save_frame) {
 		LOGD(">>>>>>>>>> write jpgin_add_rect");
 		imwrite("jpgin_add_rect.png", depthColor);
+	}
+	char szsave_jpgin_add[1024] = {0};
+	sprintf(szsave_jpgin_add, "jpgin_add_rect%d.jpg", gsave_rect_count);
+	if (save_rect_color) {
+		LOGD(">>>>>>>>>> write jpgin_add_rect");
+		imwrite(szsave_jpgin_add, depthColor);
 	}
 	//#endif
 	////////////////////找连通区域在膨胀腐蚀之前//////////////////////
@@ -427,25 +431,16 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 		LOGD(">>>>>>>>>> write morphologyClose");
 		imwrite("morphologyClose.png", mat_threshold);
 	}
-	//cvWaitKey(0);
-	//destroyWindow("morphologyEx");
-	//char jpgfile[1024] = { 0 };
-	//char morphname[1024] = { 0 };
-	//strncpy_s(morphname, filename + st_len_dirout, strlen(filename) - 4 - st_len_dirout);
-	//sprintf_s(jpgfile, "./outdir%s_morphology.jpg", morphname);
-	//imwrite(jpgfile, mat_threshold);
-	//############写到rgb文件中##############
-	char rgbjpgfile[1024] = { 0 };
-	char write_rgbname[1024] = { 0 };
-	//strncpy_s(write_rgbname, filename + st_len_dirout, strlen(filename) - 4 - st_len_dirout);
-	//sprintf_s(rgbjpgfile, "./outdir%s__rgb_rect.jpg", write_rgbname);
-	//imwrite(rgbjpgfile, In_rgb);
-	Mat OutDisp = In_rgb;
-	emit EmitOutFrameMessage(&OutDisp,0);
-	printf("###[%s][%d], EmitOutFrameMessage\n", __func__, __LINE__);
-	if (save_frame) {
+	//emit EmitOutFrameMessage(&In_rgb,0);
+	//printf("###[%s][%d], EmitOutFrameMessage\n", __func__, __LINE__);
+	#if CVIMGSHOW
+	cv::imshow("rect_resized_color", In_rgb);
+	#endif
+	char szsave_rect_color[1024] = {0};
+	sprintf(szsave_rect_color, "rect_resized_color%d.jpg", gsave_rect_count);
+	if (save_rect_color) {
 		LOGD(">>>>>>>>>> write resized_color add rect");
-		imwrite("rect_resized_color.png", In_rgb);
+		imwrite(szsave_rect_color, In_rgb);
 	}
 	return 0;
 }
@@ -457,25 +452,47 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 
 	cv::Mat depth, irl, irr, color, point3D;
 	parseFrame(*frame, &depth, &irl, &irr, &color, &point3D);
-    //lxl add test at 12-11
-    //return ;
-	#if 0
+    cv::Mat newDepth,TransDepth,blackDepth;
+	cv::Mat resized_color;
+	cv::Mat temp;
+	#if 1
 	if (!depth.empty()){
 				/////lxl add///////
 		cv::Mat tempDepth = cv::Mat(depth.rows, depth.cols, CV_16U, (uint16_t *)tempdata);
 		//for(int i =0 ; i < depth.rows*depth.cols ; i ++)
-
-		depth = depth - tempDepth ;	//深度图减去模板
-		//lxl add output grayimg
-		//pData->render->SetColorType(DepthRender::COLORTYPE_GRAY);
-		cv::Mat colorDepth = pData->render->Compute(depth);
+		//depth = depth - tempDepth ;	//ʮ׈ͼݵȥģѥ
+        cv::Mat Depth2 = cvMatRect2Tetra(depth, 18, 8, depth.cols - 1 + 7, 8, 46, depth.rows -1 - 7, depth.cols - 1 + 7, depth.rows - 1 - 7, depth.cols, depth.rows);
+		depthTransfer(Depth2, (uint16_t*)tempdata, &TransDepth, &blackDepth);
+		cv::resize(color, resized_color, depth.size());
+		#if CVIMGSHOW
+		cv::imshow("resizedColor", resized_color);
+		#endif
 		if (save_frame){
-			LOGD(">>>>>>>>>> write colorDepth");
-			imwrite("colorDepth.png", colorDepth);
+			LOGD(">>>>>>>>>> write resized_color");
+			imwrite("resized_color.png", resized_color);
 			//save_frame = false;
 		}
-		//cv::Mat colorDepth = pData->render->Compute(depth);
-		cv::imshow("ColorDepth", colorDepth);
+		//lxl add output grayimg
+		pData->render->SetColorType(DepthRender::COLORTYPE_GRAY);
+		cv::Mat depthColor = pData->render->Compute(TransDepth);
+		if (save_frame){
+			LOGD(">>>>>>>>>> write depthColor");
+			imwrite("TransdepthColor.png", depthColor);
+			//save_frame = false;
+		}
+		depthColor = depthColor / 2 + resized_color / 2;
+		emit EmitFrameMessage(&depthColor,0);
+		printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);
+		#if CVIMGSHOW
+		cv::imshow("projected depth", depthColor);
+		#endif
+		std::cout << "depthColor.channels:" << depthColor.channels() << "  rows:" << depthColor.rows << "  cols:" << depthColor.cols << std::endl;
+		if (save_frame){
+			LOGD(">>>>>>>>>> write projected_depth");
+			imwrite("projected_depth.png", depthColor);
+			//save_frame = false;
+		}
+		DeepImgFinds_write_rgb(depthColor,resized_color, 3, 7, 7);
 	}
 	// do Registration
 	#else
@@ -503,7 +520,7 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 
 		depthTransfer(newDepth, (uint16_t*)tempdata, &TransDepth, &blackDepth);
 		cv::resize(color, resized_color, depth.size());
-        #if CVIMGSHOW
+		#if CVIMGSHOW
 		cv::imshow("resizedColor", resized_color);
         #endif
 		if (save_frame){
@@ -514,8 +531,7 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		//lxl add output grayimg
 		pData->render->SetColorType(DepthRender::COLORTYPE_GRAY);
 		cv::Mat depthColor = pData->render->Compute(TransDepth);
-		emit EmitFrameMessage(&depthColor,0);
-		printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);
+
 		if (save_frame){
 			LOGD(">>>>>>>>>> write depthColor");
 			imwrite("TransdepthColor.png", depthColor);
@@ -540,7 +556,10 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		imwrite("color.png", color);
 		save_frame = false;
 	}
-	//cv::namedWindow("key");
+	if (save_rect_color) {
+		save_rect_color = false;
+		gsave_rect_count++;
+	}
     int key = -1;
     //int key = cv::waitKey(1);
 	//LOGD(">>>>>>>>>>key==%d\n", key);
@@ -553,10 +572,12 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 	case 's': case 1048576 + 's':
 		save_frame = true;
 		break;
+	case 'a': case 1048576 + 'a':
+		save_rect_color = true;
+		break; 
 	default:
 		LOGD("Pressed key %d", key);
 	}
-
 	//LOGD("=== Callback: Re-enqueue buffer(%p, %d)", frame->userBuffer, frame->bufferSize);
 	ASSERT_OK(TYEnqueueBuffer(pData->hDevice, frame->userBuffer, frame->bufferSize));
 }

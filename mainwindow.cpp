@@ -143,9 +143,9 @@ void MainWindow::EmitFrameMessage(cv::Mat* stFrameItem, int nCh)
 	if(pVideoImage == NULL)
 		return;
 	//g_VideoImage = g_Video_cBtoQI[nCh].BMP24ToQImage24(szBmp + 54, stFrameItem.dwWidth, stFrameItem.dwHeight, stFrameItem.dwWidth * 3, 0);
-	g_VideoImage = QImage((const unsigned char*)(stFrameItem->data),stFrameItem->cols, stFrameItem->rows, QImage::Format_RGB888);
+	QImage img = QImage((const unsigned char*)(stFrameItem->data),stFrameItem->cols, stFrameItem->rows, QImage::Format_RGB888);
 	//g_VideoImage = g_VideoImage.mirrored(false, true);
-    SetImageQimage(&g_VideoImage);
+    SetImageQimage(&img);
 }
 void MainWindow::EmitOutFrameMessage(cv::Mat* stFrameItem, int nCh)
 {
@@ -153,9 +153,10 @@ void MainWindow::EmitOutFrameMessage(cv::Mat* stFrameItem, int nCh)
 	if(pVideoImage == NULL)
 		return;
 	//g_VideoImage = g_Video_cBtoQI[nCh].BMP24ToQImage24(szBmp + 54, stFrameItem.dwWidth, stFrameItem.dwHeight, stFrameItem.dwWidth * 3, 0);
-	g_VideoImageOut = QImage((const unsigned char*)(stFrameItem->data),stFrameItem->cols, stFrameItem->rows, QImage::Format_RGB888);
+	QImage img = QImage((const unsigned char*)(stFrameItem->data),stFrameItem->cols, stFrameItem->rows, QImage::Format_RGB888);
+	std::cout << "stFrameItem->channels:" << stFrameItem->channels() << std::endl;
 	//g_VideoImage = g_VideoImage.mirrored(false, true);
-    SetImageOutImg(&g_VideoImageOut);
+    SetImageOutImg(&img);
 }
 void MainWindow::on_SaveBtn_clicked()
 {
@@ -224,6 +225,7 @@ void MainWindow::on_SaveBtn_clicked()
 	
     qDebug("###[%s][%d],line_getNum==%f\n", __func__, __LINE__, line_getNum);
 	SetCammerSetParamFile(&st_SysParam);
+	SetUIDispParam(&st_SysParam);
 }
 
 int MainWindow::SetUIDispParam(CAMMER_PARA_S* pstparam)
@@ -233,8 +235,44 @@ int MainWindow::SetUIDispParam(CAMMER_PARA_S* pstparam)
 	CAMMER_PARA_S stparam ; 
 	memcpy(& stparam, pstparam, sizeof(CAMMER_PARA_S));
 	QString str;
-	str.sprintf("%.3f",stparam.EditHor_View);
+	str.sprintf("%.2f",stparam.EditHor_View);
 	ui->EditHor_View->setText(str);
+	str.sprintf("%.2f",stparam.EditVer_View);
+	ui->EditVer_View->setText(str);
+	str.sprintf("%.2f",stparam.EditHor_Angl);
+	ui->EditHor_Angl->setText(str);
+	str.sprintf("%.2f",stparam.EditVer_Angl);
+	ui->EditVer_Angl->setText(str);
+	str.sprintf("%.2f",stparam.calib_horizon);
+	ui->calib_horizon->setText(str);
+	str.sprintf("%.2f",stparam.calib_vertical);
+	ui->calib_vertical->setText(str);
+	//int
+	str.sprintf("%d",stparam.PixWidth_Start);
+	ui->PixWidth_Start->setText(str);
+	str.sprintf("%d",stparam.PixWidth_End);
+	ui->PixWidth_End->setText(str);
+	str.sprintf("%d",stparam.PixWidth_Start);
+	ui->PixWidth_Start->setText(str);
+	str.sprintf("%d",stparam.PixHight_End);
+	ui->PixHight_End->setText(str);
+	str.sprintf("%d",stparam.GussBlurSize);
+	ui->GussBlurSize->setText(str);
+	str.sprintf("%d",stparam.MidBlurSize);
+	ui->MidBlurSize->setText(str);
+	str.sprintf("%d",stparam.threshold_val);
+	ui->threshold_val->setText(str);
+	str.sprintf("%d",stparam.Gain_thold_min);
+	ui->Gain_thold_min->setText(str);
+	str.sprintf("%d",stparam.Gain_thold_max);
+	ui->Gain_thold_max->setText(str);
+	str.sprintf("%d",stparam.Gain_Fre);
+	ui->Gain_Fre->setText(str);
+	str.sprintf("%d",stparam.Gain_min);
+	ui->Gain_min->setText(str);
+	str.sprintf("%d",stparam.Gain_max);
+	ui->Gain_max->setText(str);
+	
     return 0;
 }
 

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1280</width>
-    <height>720</height>
+    <width>1600</width>
+    <height>900</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,10 +17,10 @@
    <widget class="QLabel" name="RawImg">
     <property name="geometry">
      <rect>
-      <x>480</x>
+      <x>440</x>
       <y>60</y>
-      <width>320</width>
-      <height>240</height>
+      <width>440</width>
+      <height>320</height>
      </rect>
     </property>
     <property name="text">
@@ -33,10 +33,10 @@
    <widget class="QLabel" name="OutImg">
     <property name="geometry">
      <rect>
-      <x>480</x>
-      <y>340</y>
-      <width>320</width>
-      <height>240</height>
+      <x>900</x>
+      <y>60</y>
+      <width>440</width>
+      <height>320</height>
      </rect>
     </property>
     <property name="text">
@@ -808,8 +808,8 @@
    <widget class="QLabel" name="ApyToCam_15">
     <property name="geometry">
      <rect>
-      <x>480</x>
-      <y>310</y>
+      <x>900</x>
+      <y>30</y>
       <width>60</width>
       <height>25</height>
      </rect>
@@ -824,7 +824,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1280</width>
+     <width>1600</width>
      <height>25</height>
     </rect>
    </property>
