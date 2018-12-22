@@ -10,12 +10,14 @@ CAMMER_PARA_S g_SysParam;
 QString		curr_path;
 
 
+
 int main(int argc, char *argv[])
 {
-    QApplication a(argc, argv);
+	QApplication a(argc, argv);
     qDebug("main start!!!%d\n",__LINE__);
-    MainWindow w;
-    w.show();    
+    //MainWindow w;
+	MainWindow m_mainwin;
+    m_mainwin.show();    
 	QDir dir;
     curr_path = APP_PATH;			//"/FaceGate";	//dir.currentPath();
 	QString	curr_path_tmp = dir.currentPath();
@@ -24,7 +26,7 @@ int main(int argc, char *argv[])
 	qDebug( "curr_path_tmp = %s\n",	qPrintable(curr_path_tmp));
 	GetCammerSetParamFile(&g_SysParam);
 
-	w.SetUIDispParam(&g_SysParam);
+	m_mainwin.SetUIDispParam(&g_SysParam);
     qDebug("main start!!!%d\n",__LINE__);
     m_BTCommunThread.start();
 

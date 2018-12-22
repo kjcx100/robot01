@@ -26,6 +26,8 @@ public:
 	void SetImageOutImg(QImage *img);	
     void SetImageMat(Mat *cvmat);
 	int SetUIDispParam(CAMMER_PARA_S* pstparam);
+	QImage cvMat2QImage(const cv::Mat& mat);
+	void drawRectInPos(int start_x,int start_y,int w,int h);
     ~MainWindow();
 
 private slots:
@@ -43,6 +45,8 @@ private:
     QTimer *pTimer500ms;
     QTimer *pTimer1S;
 	PictureBox *pVideoImage;        //实时视频
+protected:
+	void paintEvent(QPaintEvent *);
 
 
 };

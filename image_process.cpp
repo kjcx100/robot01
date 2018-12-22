@@ -5,6 +5,7 @@
 
 #include "include/image_process.h"
 #include "../common/common.hpp"
+#include "mainwindow.h"
 
 using namespace std;
 using namespace cv;
@@ -18,7 +19,9 @@ static volatile bool save_frame;
 static volatile bool save_rect_color;
 static int gsave_rect_count = 0;
 
-Mat g_cvimg;
+cv::Mat g_cvimg;
+Mat g_cvdeepimg;
+Mat g_cvOutimg;
 
 #define CVIMGSHOW   0
 
@@ -431,8 +434,12 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 		LOGD(">>>>>>>>>> write morphologyClose");
 		imwrite("morphologyClose.png", mat_threshold);
 	}
-	//emit EmitOutFrameMessage(&In_rgb,0);
-	//printf("###[%s][%d], EmitOutFrameMessage\n", __func__, __LINE__);
+	
+	if(In_rgb.data != NULL )
+	{
+		g_cvOutimg = In_rgb.clone();
+		emit EmitOutFrameMessage(&g_cvOutimg,0);
+	}
 	#if CVIMGSHOW
 	cv::imshow("rect_resized_color", In_rgb);
 	#endif
@@ -481,8 +488,9 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 			//save_frame = false;
 		}
 		depthColor = depthColor / 2 + resized_color / 2;
-		emit EmitFrameMessage(&depthColor,0);
-		printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);
+		g_cvdeepimg = depthColor.clone();
+		emit EmitFrameMessage(&g_cvdeepimg,0);
+		//printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);
 		#if CVIMGSHOW
 		cv::imshow("projected depth", depthColor);
 		#endif

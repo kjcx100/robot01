@@ -2,6 +2,7 @@
 #include <QTextCodec>
 #include <QtDebug>
 #include <QString>
+#include <QPainter>
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
@@ -11,6 +12,9 @@ static int Timer_Count = 0;
 extern cv::Mat g_cvimg;
 extern CAMMER_PARA_S g_SysParam;
 extern QString		curr_path;
+extern cv::Mat g_cvOutimg;
+extern cv::Mat g_cvdeepimg;
+
 
 QImage		   g_VideoImage;
 QImage		   g_VideoImageOut;
@@ -48,6 +52,14 @@ MainWindow::MainWindow(QWidget *parent) :
 	qDebug("m_ImageProcessThread start!!!%d\n",__LINE__);
 	connect(&m_ImageProcessThread, SIGNAL(EmitFrameMessage(cv::Mat*, int)), this, SLOT(EmitFrameMessage(cv::Mat*, int)));
 	connect(&m_ImageProcessThread, SIGNAL(EmitOutFrameMessage(cv::Mat*, int)), this, SLOT(EmitOutFrameMessage(cv::Mat*, int)));
+
+}
+void MainWindow::paintEvent(QPaintEvent *)
+{
+	//绘制结果显示背景
+	drawRectInPos(ui->RawImg->x(),ui->RawImg->y() + ui->RawImg->height() + 10,ui->RawImg->width(),ui->RawImg->height());
+	//drawRectInPos(100,100,100,100);
+
 }
 
 void MainWindow::call_timerDone_500ms()
@@ -97,6 +109,20 @@ void MainWindow::call_timerDone_1s()
         Timer_Count = 0;
 
 }
+void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
+{
+    QPainter painter(this);
+    //创建画笔
+    QPen pen(Qt::green, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+	    // 创建画刷
+    QBrush brush(QColor(0, 0, 255), Qt::Dense4Pattern);
+    // 使用画刷
+    painter.setBrush(brush);
+	    //绘制一个矩形
+    painter.drawRect(start_x, start_y, w, h);	
+    painter.drawEllipse(QPointF(start_x + w/2, start_y + h/2), 50, 50);
+	
+}
 
 void MainWindow::SetImageData(uchar* data,int imgcols,int imgrows)
 {
@@ -137,25 +163,77 @@ void MainWindow::SetImageMat(Mat *cvmat)
         ui->OutImg->setPixmap(QPixmap::fromImage(img));
     }
 }
+//--------------------- 
+//作者：Hail-Linux 
+//来源：CSDN 
+//原文：https://blog.csdn.net/wr132/article/details/54428144 
+//版权声明：本文为博主原创文章，转载请附上博文链接！
+
+QImage MainWindow::cvMat2QImage(const cv::Mat& mat)
+{
+    // 8-bits unsigned, NO. OF CHANNELS = 1
+    if(mat.type() == CV_8UC1)
+    {
+    	printf("type() == CV_8UC1\n");
+        QImage image(mat.cols, mat.rows, QImage::Format_Indexed8);
+        // Set the color table (used to translate colour indexes to qRgb values)
+        //image.setNumColors(256);
+        for(int i = 0; i < 256; i++)
+        {
+            image.setColor(i, qRgb(i, i, i));
+        }
+        // Copy input Mat
+        uchar *pSrc = mat.data;
+        for(int row = 0; row < mat.rows; row ++)
+        {
+            uchar *pDest = image.scanLine(row);
+            memcpy(pDest, pSrc, mat.cols);
+            pSrc += mat.step;
+        }
+        return image;
+    }
+    // 8-bits unsigned, NO. OF CHANNELS = 3
+    else if(mat.type() == CV_8UC3)
+    {
+    	printf("type() == CV_8UC3\n");
+        // Copy input Mat
+        const uchar *pSrc = (const uchar*)mat.data;
+        // Create QImage with same dimensions as input Mat
+        QImage image(pSrc, mat.cols, mat.rows, mat.step, QImage::Format_RGB888);
+        return image.rgbSwapped();
+    }
+    else if(mat.type() == CV_8UC4)
+    {
+    	printf("type() == CV_8UC4\n");
+        // Copy input Mat
+        const uchar *pSrc = (const uchar*)mat.data;
+        // Create QImage with same dimensions as input Mat
+        QImage image(pSrc, mat.cols, mat.rows, mat.step, QImage::Format_ARGB32);
+        return image.copy();
+    }
+    else
+    {
+        return QImage();
+    }
+}
+
+
 void MainWindow::EmitFrameMessage(cv::Mat* stFrameItem, int nCh)
 {
 	printf("###[%s][%d],type=%d in!!!\n", __func__, __LINE__,stFrameItem->type());
 	if(pVideoImage == NULL)
 		return;
 	//g_VideoImage = g_Video_cBtoQI[nCh].BMP24ToQImage24(szBmp + 54, stFrameItem.dwWidth, stFrameItem.dwHeight, stFrameItem.dwWidth * 3, 0);
-	QImage img = QImage((const unsigned char*)(stFrameItem->data),stFrameItem->cols, stFrameItem->rows, QImage::Format_RGB888);
+	QImage img = cvMat2QImage(g_cvdeepimg);//QImage((const unsigned char*)(stFrameItem->data),stFrameItem->cols, stFrameItem->rows, QImage::Format_RGB888);
 	//g_VideoImage = g_VideoImage.mirrored(false, true);
     SetImageQimage(&img);
 }
 void MainWindow::EmitOutFrameMessage(cv::Mat* stFrameItem, int nCh)
 {
-	printf("###[%s][%d],type=%d in!!!\n", __func__, __LINE__,stFrameItem->type());
 	if(pVideoImage == NULL)
 		return;
-	//g_VideoImage = g_Video_cBtoQI[nCh].BMP24ToQImage24(szBmp + 54, stFrameItem.dwWidth, stFrameItem.dwHeight, stFrameItem.dwWidth * 3, 0);
-	QImage img = QImage((const unsigned char*)(stFrameItem->data),stFrameItem->cols, stFrameItem->rows, QImage::Format_RGB888);
-	std::cout << "stFrameItem->channels:" << stFrameItem->channels() << std::endl;
-	//g_VideoImage = g_VideoImage.mirrored(false, true);
+	//QSize outsize = ui->OutImg->size();
+	QImage img = cvMat2QImage(g_cvOutimg);//QImage((const unsigned char*)(stFrameItem->data),stFrameItem->cols, stFrameItem->rows, QImage::Format_RGB888);
     SetImageOutImg(&img);
 }
 void MainWindow::on_SaveBtn_clicked()
