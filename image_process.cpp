@@ -456,7 +456,8 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 {
 	CallbackData* pData = (CallbackData*)userdata;
 	LOGD("=== Get frame %d", ++pData->index);
-
+	CAMMER_PARA_S st_SysParam;
+	GetCammerSetParam(&st_SysParam);
 	cv::Mat depth, irl, irr, color, point3D;
 	parseFrame(*frame, &depth, &irl, &irr, &color, &point3D);
     cv::Mat newDepth,TransDepth,blackDepth;
@@ -494,7 +495,7 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		#if CVIMGSHOW
 		cv::imshow("projected depth", depthColor);
 		#endif
-		std::cout << "depthColor.channels:" << depthColor.channels() << "  rows:" << depthColor.rows << "  cols:" << depthColor.cols << std::endl;
+		//std::cout << "depthColor.channels:" << depthColor.channels() << "  rows:" << depthColor.rows << "  cols:" << depthColor.cols << std::endl;
 		if (save_frame){
 			LOGD(">>>>>>>>>> write projected_depth");
 			imwrite("projected_depth.png", depthColor);

@@ -27,8 +27,8 @@ int main(int argc, char *argv[])
 	GetCammerSetParamFile(&g_SysParam);
 
 	m_mainwin.SetUIDispParam(&g_SysParam);
-    qDebug("main start!!!%d\n",__LINE__);
-    m_BTCommunThread.start();
+    //qDebug("main start!!!%d\n",__LINE__);
+    //m_BTCommunThread.start();
 
     //m_ImageDispThread.start();
     //MY_SLEEP_NS(5);

@@ -56,8 +56,8 @@ MainWindow::MainWindow(QWidget *parent) :
 }
 void MainWindow::paintEvent(QPaintEvent *)
 {
-	//绘制结果显示背景
-	drawRectInPos(ui->RawImg->x(),ui->RawImg->y() + ui->RawImg->height() + 10,ui->RawImg->width(),ui->RawImg->height());
+	//绘制结果显示背景	26+420+420	-->>40+420+420
+	drawRectInPos(ui->RawImg->x(),ui->RawImg->y() + ui->RawImg->height() + 40,ui->RawImg->width(),ui->RawImg->height());
 	//drawRectInPos(100,100,100,100);
 
 }
@@ -115,12 +115,35 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
     //创建画笔
     QPen pen(Qt::green, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
 	    // 创建画刷
-    QBrush brush(QColor(0, 0, 255), Qt::Dense4Pattern);
+    //QBrush brush(QColor(0, 0, 0), Qt::SolidPattern);
     // 使用画刷
-    painter.setBrush(brush);
+    //painter.setBrush(brush);
 	    //绘制一个矩形
     painter.drawRect(start_x, start_y, w, h);	
-    painter.drawEllipse(QPointF(start_x + w/2, start_y + h/2), 50, 50);
+	    // 使用画刷填充一个矩形区域
+    painter.fillRect(QRect(start_x, start_y, w, h),QColor(15,45,188));
+	//重新设置画笔
+    pen.setWidth(1);
+    pen.setColor(Qt::white);
+    painter.setPen(pen);
+	int circleNum = 8;
+	painter.drawLine( QPoint(start_x ,start_y + h/2), QPoint(start_x + w,start_y + h/2));
+	painter.drawLine( QPoint(start_x + w/2,start_y), QPoint(start_x + w/2,start_y + h));
+    //painter.drawEllipse(QPointF(start_x + w/2, start_y + h/2), h/circleNum, h/circleNum);
+    painter.drawEllipse(QPointF(start_x + w/2, start_y + h/2), h*2/circleNum, h*2/circleNum);
+    painter.drawEllipse(QPointF(start_x + w/2, start_y + h/2), h*3/circleNum, h*3/circleNum);
+    painter.drawEllipse(QPointF(start_x + w/2, start_y + h/2), h*4/circleNum, h*4/circleNum);
+    QPixmap pix;
+    pix.load(":/bg_img/car_black.jpg");
+	int carpic_w = 40;
+	int carpic_h = 60;
+    painter.drawPixmap(start_x + w/2 - carpic_w/2, start_y + h/2 - carpic_h/2, carpic_w, carpic_h, pix);
+	QFont font("宋体", 14, QFont::Bold, true);
+	//设置下划线
+	//font.setUnderline(true);
+	//使用字体
+	painter.setFont(font);
+	painter.drawText(start_x + 4, start_y + 24, tr("极坐标图"));
 	
 }
 
@@ -174,7 +197,6 @@ QImage MainWindow::cvMat2QImage(const cv::Mat& mat)
     // 8-bits unsigned, NO. OF CHANNELS = 1
     if(mat.type() == CV_8UC1)
     {
-    	printf("type() == CV_8UC1\n");
         QImage image(mat.cols, mat.rows, QImage::Format_Indexed8);
         // Set the color table (used to translate colour indexes to qRgb values)
         //image.setNumColors(256);
@@ -195,7 +217,6 @@ QImage MainWindow::cvMat2QImage(const cv::Mat& mat)
     // 8-bits unsigned, NO. OF CHANNELS = 3
     else if(mat.type() == CV_8UC3)
     {
-    	printf("type() == CV_8UC3\n");
         // Copy input Mat
         const uchar *pSrc = (const uchar*)mat.data;
         // Create QImage with same dimensions as input Mat
@@ -220,7 +241,7 @@ QImage MainWindow::cvMat2QImage(const cv::Mat& mat)
 
 void MainWindow::EmitFrameMessage(cv::Mat* stFrameItem, int nCh)
 {
-	printf("###[%s][%d],type=%d in!!!\n", __func__, __LINE__,stFrameItem->type());
+	//printf("###[%s][%d],type=%d in!!!\n", __func__, __LINE__,stFrameItem->type());
 	if(pVideoImage == NULL)
 		return;
 	//g_VideoImage = g_Video_cBtoQI[nCh].BMP24ToQImage24(szBmp + 54, stFrameItem.dwWidth, stFrameItem.dwHeight, stFrameItem.dwWidth * 3, 0);
@@ -300,6 +321,13 @@ void MainWindow::on_SaveBtn_clicked()
 	line_Qby = ui->Gain_max->text().toLatin1();
     line_getInt = atoi(line_Qby);
 	st_SysParam.Gain_max = line_getInt;
+
+	st_SysParam.CurrentCam 		= ui->Comb_Cam->currentIndex();
+	st_SysParam.IsApplyCam01 	= ui->ApyCam1->checkState();
+	st_SysParam.IsApplyCam02 	= ui->ApyCam2->checkState();
+	st_SysParam.IsApplyCam03 	= ui->ApyCam3->checkState();
+	st_SysParam.IsApplyCam04 	= ui->ApyCam4->checkState();
+	st_SysParam.IsApplyCam05 	= ui->ApyCam5->checkState();
 	
     qDebug("###[%s][%d],line_getNum==%f\n", __func__, __LINE__, line_getNum);
 	SetCammerSetParamFile(&st_SysParam);
@@ -330,8 +358,8 @@ int MainWindow::SetUIDispParam(CAMMER_PARA_S* pstparam)
 	ui->PixWidth_Start->setText(str);
 	str.sprintf("%d",stparam.PixWidth_End);
 	ui->PixWidth_End->setText(str);
-	str.sprintf("%d",stparam.PixWidth_Start);
-	ui->PixWidth_Start->setText(str);
+	str.sprintf("%d",stparam.PixHight_Start);
+	ui->PixHight_Start->setText(str);
 	str.sprintf("%d",stparam.PixHight_End);
 	ui->PixHight_End->setText(str);
 	str.sprintf("%d",stparam.GussBlurSize);
@@ -350,6 +378,14 @@ int MainWindow::SetUIDispParam(CAMMER_PARA_S* pstparam)
 	ui->Gain_min->setText(str);
 	str.sprintf("%d",stparam.Gain_max);
 	ui->Gain_max->setText(str);
+
+	ui->Comb_Cam->setCurrentIndex(stparam.CurrentCam);
+	ui->ApyCam1->setCheckState((Qt::CheckState)stparam.IsApplyCam01);
+	ui->ApyCam2->setCheckState((Qt::CheckState)stparam.IsApplyCam02);
+	ui->ApyCam3->setCheckState((Qt::CheckState)stparam.IsApplyCam03);
+	ui->ApyCam4->setCheckState((Qt::CheckState)stparam.IsApplyCam04);
+	ui->ApyCam5->setCheckState((Qt::CheckState)stparam.IsApplyCam05);
+	
 	
     return 0;
 }
@@ -424,6 +460,13 @@ int GetCammerSetParamFile(CAMMER_PARA_S* pstparam)
 		pstparam->Gain_Fre		 	= pIniFile->value("/CammerParam/Gain_Fre", "0").toInt();
 		pstparam->Gain_min	 		= pIniFile->value("/CammerParam/Gain_min", "0").toInt();
 		pstparam->Gain_max	 		= pIniFile->value("/CammerParam/Gain_max", "0").toInt();
+
+		pstparam->CurrentCam	 		= pIniFile->value("/CammerParam/CurrentCam", "0").toInt();
+		pstparam->IsApplyCam01	 		= pIniFile->value("/CammerParam/IsApplyCam01", "0").toInt();
+		pstparam->IsApplyCam02	 		= pIniFile->value("/CammerParam/IsApplyCam02", "0").toInt();
+		pstparam->IsApplyCam03	 		= pIniFile->value("/CammerParam/IsApplyCam03", "0").toInt();
+		pstparam->IsApplyCam04	 		= pIniFile->value("/CammerParam/IsApplyCam04", "0").toInt();
+		pstparam->IsApplyCam05	 		= pIniFile->value("/CammerParam/IsApplyCam05", "0").toInt();
         //printf("GetDynamicPassParamFile,pDynamicPass=%s\n",pDynamicPass);
 		//printf("GetDynamicPassParamFile,pszTime=%s\n",pszTime);
         delete pIniFile;
@@ -479,6 +522,13 @@ int SetCammerSetParamFile(CAMMER_PARA_S* pstparam)
 		pIniFile->setValue("/CammerParam/Gain_Fre", pstparam->Gain_Fre);
 		pIniFile->setValue("/CammerParam/Gain_min", pstparam->Gain_min);
 		pIniFile->setValue("/CammerParam/Gain_max", pstparam->Gain_max);		
+
+		pIniFile->setValue("/CammerParam/CurrentCam", pstparam->CurrentCam);		
+		pIniFile->setValue("/CammerParam/IsApplyCam01", pstparam->IsApplyCam01);		
+		pIniFile->setValue("/CammerParam/IsApplyCam02", pstparam->IsApplyCam02);		
+		pIniFile->setValue("/CammerParam/IsApplyCam03", pstparam->IsApplyCam03);		
+		pIniFile->setValue("/CammerParam/IsApplyCam04", pstparam->IsApplyCam04);		
+		pIniFile->setValue("/CammerParam/IsApplyCam05", pstparam->IsApplyCam05);		
 		
         delete pIniFile;
         pIniFile = NULL;

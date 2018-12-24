@@ -1,31 +1,38 @@
 #ifndef DEFINE_H
 #define DEFINE_H
 
-#define  APP_PATH		"/user"
+#define  APP_PATH		"/usr"
 
 typedef struct _CAMMER_PARA_S			// size = 64
 {
 //安装参数
 	float	 	EditHor_View;	//50du
 	float 		EditVer_View;	//垂直视场：45度（自动计算
-	int 		PixWidth_Start;
+	int 		PixWidth_Start;	//裁剪起止范围
 	int 		PixWidth_End;
 	int 		PixHight_Start;
 	int 		PixHight_End;
-	float		EditHor_Angl;
+	float		EditHor_Angl;	//安装角度
 	float		EditVer_Angl;
 //滤波参数
-	int 		GussBlurSize;
+	int 		GussBlurSize;	//高斯滤波
 	int			MidBlurSize;
-	float		calib_horizon;
+	float		calib_horizon;	//几何校准 水平角度
 	float		calib_vertical;
-	int			threshold_val;
+	int			threshold_val;	//二值化阀值
 //增益参数
-	int 		Gain_thold_min;
+	int 		Gain_thold_min;	//增益范围
 	int			Gain_thold_max;
-	int			Gain_Fre;
+	int			Gain_Fre;		//调整频次
 	int			Gain_min;
 	int			Gain_max;
+//配置参数
+	int			CurrentCam;		//配置相机
+	int			IsApplyCam01;
+	int			IsApplyCam02;
+	int			IsApplyCam03;
+	int			IsApplyCam04;
+	int			IsApplyCam05;
 	
 
 }CAMMER_PARA_S;

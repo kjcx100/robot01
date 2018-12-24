@@ -1,5 +1,7 @@
 <RCC>
     <qresource prefix="/bg_img">
         <file>robot_bgimg.jpg</file>
+        <file>car.jpg</file>
+        <file>car_black.jpg</file>
     </qresource>
 </RCC>
