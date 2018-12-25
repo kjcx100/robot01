@@ -251,7 +251,9 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 	int SOBEL_DELTA = 0.5;
 	int SOBEL_DDEPTH = CV_16S;
 	int SOBEL_X_WEIGHT = 1;
-
+	CAMMER_PARA_S st_SysParam;
+	GetCammerSysParam(&st_SysParam);
+	
 	Mat mat_blur;
 	Mat In_rgb = resized_color.clone();
 	mat_blur = depthColor.clone();
@@ -269,9 +271,11 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 		for (int j = 0; j <  mat_gray.cols; j++)
 		{
 			//输出到rgb
-			if(i <= 40)
+			//if(i <= 40)
+			if(i <= st_SysParam.PixWidth_End)
 				data_gray[j] = 255;
-			if( i > 40 && j <= 112)
+			//if( i > 40 && j <= 112)
+			if( i > st_SysParam.PixWidth_End && j <= st_SysParam.PixHight_End)
 				data_gray[j] = 255;
 		}
 	}
@@ -283,12 +287,12 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 	Mat abs_grad_x, abs_grad_y;
 
 	Mat mat_threshold;
-	double otsu_thresh_val = threshold(mat_gray, mat_threshold, 30, 255, CV_THRESH_BINARY_INV);
+	double otsu_thresh_val = threshold(mat_gray, mat_threshold, st_SysParam.threshold_val, 255, CV_THRESH_BINARY_INV);
 	//threshold(grad, mat_threshold, 0, 255, CV_THRESH_OTSU + CV_THRESH_BINARY);
 	//############先开操作，去掉一些小的区域####################
-	int Open_morphW = 3;
-	int Open_morphH = 3;
-	Mat element = getStructuringElement(MORPH_RECT, Size(Open_morphW, Open_morphH));
+	//int Open_morphW = 3;
+	//int Open_morphH = 3;
+	Mat element = getStructuringElement(MORPH_RECT, Size(st_SysParam.MorphOpenSize, st_SysParam.MorphOpenSize));
 	morphologyEx(mat_threshold, mat_threshold, MORPH_OPEN, element);
 	char jpgfileopen[1024] = { 0 };
 	char morphopen[1024] = { 0 };
@@ -299,7 +303,7 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 		LOGD(">>>>>>>>>> write jpgfileopen");
 		imwrite("jpgfile_open.png", mat_threshold);
 	}
-	//#if 1
+	//#if 1 //先找连通区域
 	Mat findContour;
 	mat_threshold.copyTo(findContour);
 	vector<vector<Point> > contours;
@@ -421,8 +425,9 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 		LOGD(">>>>>>>>>> write jpgin_add_rect");
 		imwrite(szsave_jpgin_add, depthColor);
 	}
-	//#endif
+	//#endif #if 1//先找连通区域
 	////////////////////找连通区域在膨胀腐蚀之前//////////////////////
+	//lxl log 12-25 MORPH_CLOSE后感觉边界更整齐，have a try
 	element = getStructuringElement(MORPH_RECT, Size(morphW, morphH));
 	morphologyEx(mat_threshold, mat_threshold, MORPH_CLOSE, element);
 
@@ -455,14 +460,13 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void* tempdata)
 {
 	CallbackData* pData = (CallbackData*)userdata;
-	LOGD("=== Get frame %d", ++pData->index);
+	//LOGD("=== Get frame %d", ++pData->index);
 	CAMMER_PARA_S st_SysParam;
-	GetCammerSetParam(&st_SysParam);
+	GetCammerSysParam(&st_SysParam);
 	cv::Mat depth, irl, irr, color, point3D;
 	parseFrame(*frame, &depth, &irl, &irr, &color, &point3D);
     cv::Mat newDepth,TransDepth,blackDepth;
 	cv::Mat resized_color;
-	cv::Mat temp;
 	#if 1
 	if (!depth.empty()){
 				/////lxl add///////
@@ -481,15 +485,15 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 			//save_frame = false;
 		}
 		//lxl add output grayimg
-		pData->render->SetColorType(DepthRender::COLORTYPE_GRAY);
+		pData->render->SetColorType(DepthRender::COLORTYPE_BLUERED);//(DepthRender::COLORTYPE_GRAY);
 		cv::Mat depthColor = pData->render->Compute(TransDepth);
 		if (save_frame){
 			LOGD(">>>>>>>>>> write depthColor");
 			imwrite("TransdepthColor.png", depthColor);
 			//save_frame = false;
 		}
-		depthColor = depthColor / 2 + resized_color / 2;
 		g_cvdeepimg = depthColor.clone();
+		depthColor = depthColor / 2 + resized_color / 2;
 		emit EmitFrameMessage(&g_cvdeepimg,0);
 		//printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);
 		#if CVIMGSHOW
@@ -501,7 +505,10 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 			imwrite("projected_depth.png", depthColor);
 			//save_frame = false;
 		}
-		DeepImgFinds_write_rgb(depthColor,resized_color, 3, 7, 7);
+		//DeepImgFinds_write_rgb(depthColor,resized_color, 3, 7, 7);
+		//lxl add at 12-25 使用系统参数
+		DeepImgFinds_write_rgb(depthColor,resized_color, st_SysParam.MidBlurSize,
+								st_SysParam.MorphCloseSize, st_SysParam.MorphCloseSize);
 	}
 	// do Registration
 	#else

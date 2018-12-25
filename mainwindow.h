@@ -64,8 +64,8 @@ public:
 };
 
 int SetUIDispParam(CAMMER_PARA_S* pstparam);
-int GetCammerSetParam(CAMMER_PARA_S* pstparam);
-int GetCammerSetParamFile(CAMMER_PARA_S* pstparam);
+int GetCammerSysParam(CAMMER_PARA_S* pstparam);
+int GetCammerSysParamFile(CAMMER_PARA_S* pstparam);
 int SetCammerSetParamFile(CAMMER_PARA_S* pstparam);
 
 #endif // MAINWINDOW_H

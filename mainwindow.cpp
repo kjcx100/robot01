@@ -261,7 +261,7 @@ void MainWindow::on_SaveBtn_clicked()
 {
 	printf("###[%s][%d], in!!!\n", __func__, __LINE__);
 	CAMMER_PARA_S st_SysParam;
-	GetCammerSetParam(&st_SysParam);
+	GetCammerSysParam(&st_SysParam);
     QByteArray line_Qby;
     float line_getNum = 0;
 	int line_getInt = 0;	
@@ -302,6 +302,12 @@ void MainWindow::on_SaveBtn_clicked()
 	line_Qby = ui->MidBlurSize->text().toLatin1();
     line_getInt = atoi(line_Qby);
 	st_SysParam.MidBlurSize = line_getInt;
+	line_Qby = ui->MorphOpenSize->text().toLatin1();
+    line_getInt = atoi(line_Qby);
+	st_SysParam.MorphOpenSize = line_getInt;
+	line_Qby = ui->MorphCloseSize->text().toLatin1();
+    line_getInt = atoi(line_Qby);
+	st_SysParam.MorphCloseSize = line_getInt;
 
 	line_Qby = ui->threshold_val->text().toLatin1();
     line_getInt = atoi(line_Qby);
@@ -366,6 +372,10 @@ int MainWindow::SetUIDispParam(CAMMER_PARA_S* pstparam)
 	ui->GussBlurSize->setText(str);
 	str.sprintf("%d",stparam.MidBlurSize);
 	ui->MidBlurSize->setText(str);
+	str.sprintf("%d",stparam.MorphOpenSize);
+	ui->MorphOpenSize->setText(str);
+	str.sprintf("%d",stparam.MorphCloseSize);
+	ui->MorphCloseSize->setText(str);
 	str.sprintf("%d",stparam.threshold_val);
 	ui->threshold_val->setText(str);
 	str.sprintf("%d",stparam.Gain_thold_min);
@@ -410,7 +420,7 @@ void ImageDispThread::run()
 
 ////////////参数保存
 
-int GetCammerSetParam(CAMMER_PARA_S* pstparam)
+int GetCammerSysParam(CAMMER_PARA_S* pstparam)
 {
 	if(pstparam == NULL)
         return -1;
@@ -420,12 +430,12 @@ int GetCammerSetParam(CAMMER_PARA_S* pstparam)
     return 0;
 }
 
-int GetCammerSetParamFile(CAMMER_PARA_S* pstparam)
+int GetCammerSysParamFile(CAMMER_PARA_S* pstparam)
 {
     QSettings  *pIniFile = NULL;
 	if(pstparam == NULL)
 	{
-		qDebug( "GetCammerSetParamFile err  = NULL\n");
+		qDebug( "GetCammerSysParamFile err  = NULL\n");
 		return -2;
 	}
 	QString  fileName = curr_path + "/Config/SysParam.ini";
@@ -451,6 +461,8 @@ int GetCammerSetParamFile(CAMMER_PARA_S* pstparam)
 		//滤波参数
 		pstparam->GussBlurSize	 	= pIniFile->value("/CammerParam/GussBlurSize", "0").toInt();
 		pstparam->MidBlurSize 		= pIniFile->value("/CammerParam/MidBlurSize", "0").toInt();
+		pstparam->MorphOpenSize 	= pIniFile->value("/CammerParam/MorphOpenSize", "0").toInt();
+		pstparam->MorphCloseSize	= pIniFile->value("/CammerParam/MorphCloseSize", "0").toInt();
 		pstparam->calib_horizon 	= pIniFile->value("/CammerParam/calib_horizon", "0").toFloat();
 		pstparam->calib_vertical	= pIniFile->value("/CammerParam/calib_vertical", "0").toFloat();
 		pstparam->threshold_val	 	= pIniFile->value("/CammerParam/threshold_val", "0").toInt();
@@ -513,6 +525,8 @@ int SetCammerSetParamFile(CAMMER_PARA_S* pstparam)
 		
 		pIniFile->setValue("/CammerParam/GussBlurSize", pstparam->GussBlurSize);
 		pIniFile->setValue("/CammerParam/MidBlurSize", pstparam->MidBlurSize);
+		pIniFile->setValue("/CammerParam/MorphOpenSize", pstparam->MorphOpenSize);
+		pIniFile->setValue("/CammerParam/MorphCloseSize", pstparam->MorphCloseSize);
 		pIniFile->setValue("/CammerParam/calib_horizon", pstparam->calib_horizon);
 		pIniFile->setValue("/CammerParam/calib_vertical", pstparam->calib_vertical);
 		pIniFile->setValue("/CammerParam/threshold_val", pstparam->threshold_val);

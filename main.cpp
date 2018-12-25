@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 	
     qDebug( "curr path = %s\n",		qPrintable(curr_path));
 	qDebug( "curr_path_tmp = %s\n",	qPrintable(curr_path_tmp));
-	GetCammerSetParamFile(&g_SysParam);
+	GetCammerSysParamFile(&g_SysParam);
 
 	m_mainwin.SetUIDispParam(&g_SysParam);
     //qDebug("main start!!!%d\n",__LINE__);

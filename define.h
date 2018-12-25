@@ -17,6 +17,8 @@ typedef struct _CAMMER_PARA_S			// size = 64
 //滤波参数
 	int 		GussBlurSize;	//高斯滤波
 	int			MidBlurSize;
+	int			MorphOpenSize;	//开操作大小
+	int 		MorphCloseSize;
 	float		calib_horizon;	//几何校准 水平角度
 	float		calib_vertical;
 	int			threshold_val;	//二值化阀值
