@@ -12,16 +12,19 @@ using namespace cv;
 
 static char buffer[1024 * 1024 * 20];
 
-static char tmpbuffer[1024 * 1024 * 20];
-static int  n;
-static volatile bool exit_main;
-static volatile bool save_frame;
-static volatile bool save_rect_color;
+char *g_tmpbuffer = NULL;
+#define BUFF_SIZE  1024*1024*8
+volatile bool exit_main;
+volatile bool save_frame;
+volatile bool save_rect_color;
 static int gsave_rect_count = 0;
 
 cv::Mat g_cvimg;
 Mat g_cvdeepimg;
 Mat g_cvOutimg;
+int g_IsTemp_btn = 0;
+int gm_width = 640;
+int gm_hight = 480;
 
 #define CVIMGSHOW   0
 
@@ -94,7 +97,10 @@ void BTCommunThread::run()
     }
 
 }
-
+int Open_TempImg()
+{
+	return 1;
+}
 //===============================================================
 //select方式延时： 替代usleep(usleep 跟系统时间相关)
 //===============================================================
@@ -128,8 +134,8 @@ struct CallbackData {
 };
 bool ImageProcessThread::verifySizes(cv::Rect mr) {
 	// Set a min and max area. All other patchs are discarded
-	int min = 400 * 2;  // minimum area
-	int max = 568 * 340;  // maximum area
+	int min = 400 * 4;  // minimum area
+	int max = 640 * 480;  // maximum area
 
 	float area = mr.height * mr.width;
 	// cout << "area:" << area << endl;
@@ -175,12 +181,19 @@ void ImageProcessThread::depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat*
 	uint16_t blk_data[480*640];
 	uint16_t* src_data;
 	uint16_t treshhold;
-	
+	CAMMER_PARA_S st_SysParam;
+	GetCammerSysParam(&st_SysParam);
+	if(st_SysParam.Temp_threshold < 0.01 || st_SysParam.Temp_threshold > 10)
+	{
+		st_SysParam.Temp_threshold = 0.03;
+		printf("set Temp_threshold 0.03\n");
+		SetCammerSetParamFile(&st_SysParam);
+	}
 	src_data = (uint16_t *)depth.data;
 	memset(blk_data,0,480*640*2);
 	for(i=0;i<(480*640);i++)
 	{
-		treshhold = (uint16_t)(t_data[i]*0.03);
+		treshhold = (uint16_t)(t_data[i]*st_SysParam.Temp_threshold);
 		if(src_data[i] == 0)
 		{
 			dst_data[i] = 0;
@@ -272,11 +285,11 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 		{
 			//输出到rgb
 			//if(i <= 40)
-			if(i <= st_SysParam.PixWidth_End)
-				data_gray[j] = 255;
+			if(i <= st_SysParam.PixHight_End)
+				data_gray[j] = 0;
 			//if( i > 40 && j <= 112)
-			if( i > st_SysParam.PixWidth_End && j <= st_SysParam.PixHight_End)
-				data_gray[j] = 255;
+			if( i > st_SysParam.PixHight_End && j <= st_SysParam.PixWidth_End)
+				data_gray[j] = 0;
 		}
 	}
 	int scale = SOBEL_SCALE;
@@ -299,10 +312,27 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 	//strncpy_s(morphopen, filename + st_len_dirout, strlen(filename) - 4 - st_len_dirout);
 	//sprintf_s(jpgfileopen, "./outdir%s_morphology.jpg", morphopen);
 	//imwrite(jpgfileopen, mat_threshold);
+	#if CVIMGSHOW
+	imshow("morphologyOpen", mat_threshold);
+    #endif
 	if (save_frame){
 		LOGD(">>>>>>>>>> write jpgfileopen");
 		imwrite("jpgfile_open.png", mat_threshold);
 	}
+	#if 1
+		//lxl log 12-25 MORPH_CLOSE后感觉边界更整齐，have a try
+		element = getStructuringElement(MORPH_RECT, Size(morphW, morphH));
+		morphologyEx(mat_threshold, mat_threshold, MORPH_CLOSE, element);
+
+		//namedWindow("morphologyEx");
+	    #if CVIMGSHOW
+		imshow("morphologyClose", mat_threshold);
+	    #endif
+		if (save_frame) {
+			LOGD(">>>>>>>>>> write morphologyClose");
+			imwrite("morphologyClose.png", mat_threshold);
+		}
+	#endif
 	//#if 1 //先找连通区域
 	Mat findContour;
 	mat_threshold.copyTo(findContour);
@@ -321,15 +351,14 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 		if (!calcSafeRect(mr, mat_threshold, safeBoundRect))
 		{
 			cout << "calcSafeRect is false" << endl;
-			//continue;
 		}
 		else
 		{
 			if (verifySizes(safeBoundRect)) {
 				first_rects.push_back(safeBoundRect);
 				//cout << "safeBoundRect.area:" << safeBoundRect.area() << endl;
-				rectangle(depthColor, safeBoundRect, Scalar(0, 0, 255));
-				rectangle(In_rgb, safeBoundRect, Scalar(0, 255, 255));
+				//rectangle(depthColor, safeBoundRect, Scalar(0, 0, 255));
+				//rectangle(In_rgb, safeBoundRect, Scalar(0, 255, 255));
 				#if 0	//lxl add 2018-12-21 暂时不用rgb检测物体
 				double safecontourArea = contourArea(Mat(*itc));
 				//取出检测到的区域 and canny
@@ -385,7 +414,7 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 					//绘制出contours向量内所有的像素点
 					Point P = Point(contours[Count_contours][j].x, contours[Count_contours][j].y);
 					//输出到rgb
-					//In_rgb.at<uchar>(P) = 0;
+					circle(depthColor, P, 0, Scalar(255, 255, 0));
 					circle(In_rgb, P, 0, Scalar(255, 255, 0));
 				}
 			}
@@ -426,7 +455,7 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 		imwrite(szsave_jpgin_add, depthColor);
 	}
 	//#endif #if 1//先找连通区域
-	////////////////////找连通区域在膨胀腐蚀之前//////////////////////
+	#if 0
 	//lxl log 12-25 MORPH_CLOSE后感觉边界更整齐，have a try
 	element = getStructuringElement(MORPH_RECT, Size(morphW, morphH));
 	morphologyEx(mat_threshold, mat_threshold, MORPH_CLOSE, element);
@@ -439,10 +468,10 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 		LOGD(">>>>>>>>>> write morphologyClose");
 		imwrite("morphologyClose.png", mat_threshold);
 	}
-	
-	if(In_rgb.data != NULL )
+	#endif
+	if(depthColor.data != NULL )
 	{
-		g_cvOutimg = In_rgb.clone();
+		g_cvOutimg = depthColor.clone();
 		emit EmitOutFrameMessage(&g_cvOutimg,0);
 	}
 	#if CVIMGSHOW
@@ -473,8 +502,9 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		cv::Mat tempDepth = cv::Mat(depth.rows, depth.cols, CV_16U, (uint16_t *)tempdata);
 		//for(int i =0 ; i < depth.rows*depth.cols ; i ++)
 		//depth = depth - tempDepth ;	//ʮ׈ͼݵȥģѥ
-        cv::Mat Depth2 = cvMatRect2Tetra(depth, 18, 8, depth.cols - 1 + 7, 8, 46, depth.rows -1 - 7, depth.cols - 1 + 7, depth.rows - 1 - 7, depth.cols, depth.rows);
-		depthTransfer(Depth2, (uint16_t*)tempdata, &TransDepth, &blackDepth);
+		//lxl modify 12-27	不用rgb直接用深度图，所以不用换算坐标
+        //cv::Mat Depth2 = cvMatRect2Tetra(depth, 18, 8, depth.cols - 1 + 7, 8, 46, depth.rows -1 - 7, depth.cols - 1 + 7, depth.rows - 1 - 7, depth.cols, depth.rows);
+		depthTransfer(depth, (uint16_t*)tempdata, &TransDepth, &blackDepth);
 		cv::resize(color, resized_color, depth.size());
 		#if CVIMGSHOW
 		cv::imshow("resizedColor", resized_color);
@@ -487,13 +517,17 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		//lxl add output grayimg
 		pData->render->SetColorType(DepthRender::COLORTYPE_BLUERED);//(DepthRender::COLORTYPE_GRAY);
 		cv::Mat depthColor = pData->render->Compute(TransDepth);
+		//lxl modify 2018-12-27 直接显示deep原图
+		cv::Mat RawdepthColor = pData->render->Compute(depth);
+		g_cvdeepimg = RawdepthColor.clone();
+		
 		if (save_frame){
 			LOGD(">>>>>>>>>> write depthColor");
 			imwrite("TransdepthColor.png", depthColor);
 			//save_frame = false;
 		}
-		g_cvdeepimg = depthColor.clone();
-		depthColor = depthColor / 2 + resized_color / 2;
+		//g_cvdeepimg = depthColor.clone();	//lxl modify 2018-12-27
+		//depthColor = depthColor / 2 + resized_color / 2;
 		emit EmitFrameMessage(&g_cvdeepimg,0);
 		//printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);
 		#if CVIMGSHOW
@@ -576,24 +610,7 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		save_rect_color = false;
 		gsave_rect_count++;
 	}
-    int key = -1;
-    //int key = cv::waitKey(1);
-	//LOGD(">>>>>>>>>>key==%d\n", key);
-	switch (key){
-	case -1:
-		break;
-	case 'q': case 1048576 + 'q':
-		exit_main = true;
-		break;
-	case 's': case 1048576 + 's':
-		save_frame = true;
-		break;
-	case 'a': case 1048576 + 'a':
-		save_rect_color = true;
-		break; 
-	default:
-		LOGD("Pressed key %d", key);
-	}
+
 	//LOGD("=== Callback: Re-enqueue buffer(%p, %d)", frame->userBuffer, frame->bufferSize);
 	ASSERT_OK(TYEnqueueBuffer(pData->hDevice, frame->userBuffer, frame->bufferSize));
 }
@@ -628,8 +645,11 @@ void ImageProcessThread::run()
 	const char* IP = NULL;
 	const char* ID = NULL;
 	TY_DEV_HANDLE hDevice;
-	int m_width = 640;
-	int m_hight = 480;
+	CAMMER_PARA_S st_SysParam;
+	GetCammerSysParam(&st_SysParam);
+	
+	char * tempImgBuf = (char *)malloc(BUFF_SIZE);
+	g_tmpbuffer = (char *)malloc(BUFF_SIZE);
     qDebug("ImageProcessThread::run=%d\n",__LINE__);
 	FILE *filetmp;
     //const char* tempimg = "/home/apple/qt_prj/build-robot01-Desktop_Qt_5_10_1_GCC_64bit-Debug/template.yuv";
@@ -642,7 +662,7 @@ void ImageProcessThread::run()
         return ;
 	}
 	printf("fopen %s ok\n",tempimg);
-	if (m_width*m_hight * 2 != fread(tmpbuffer, 1, m_width*m_hight*2, filetmp))
+	if (gm_width*gm_hight * 2 != fread(tempImgBuf, 1, gm_width*gm_hight*2, filetmp))
 	{
 		//提示文件读取错误  
 		fclose(filetmp);
@@ -657,30 +677,37 @@ void ImageProcessThread::run()
 	TY_VERSION_INFO* pVer = (TY_VERSION_INFO*)buffer;
 	ASSERT_OK(TYLibVersion(pVer));
 	LOGD("     - lib version: %d.%d.%d", pVer->major, pVer->minor, pVer->patch);
+	printf("st_SysParam.CurrentCam==%d\n",st_SysParam.CurrentCam);
+	if(ID == NULL){
+        LOGD("=== Get device info");
+        int n;
+        ASSERT_OK( TYGetDeviceNumber(&n) );
+        LOGD("     - device number %d", n);
+        TY_DEVICE_BASE_INFO* pBaseInfo = (TY_DEVICE_BASE_INFO*)buffer;
+        ASSERT_OK( TYGetDeviceList(pBaseInfo, 100, &n) );
 
-	if (IP) {
-		LOGD("=== Open device %s", IP);
-		ASSERT_OK(TYOpenDeviceWithIP(IP, &hDevice));
+        if(n == 0){
+            LOGD("=== No device got");
+            return ;
+        }
+	  	if(st_SysParam.CurrentCam <= 0)
+			st_SysParam.CurrentCam = 0;
+		if(0 == st_SysParam.CurrentCam)
+			ID = st_SysParam.id1;
+		else if(1 == st_SysParam.CurrentCam)
+			ID = st_SysParam.id2;
+		else if(2 == st_SysParam.CurrentCam)
+			ID = st_SysParam.id3;
+		else if(3 == st_SysParam.CurrentCam)
+			ID = st_SysParam.id4;
+		else if(4 == st_SysParam.CurrentCam)
+			ID = st_SysParam.id5; 
+
+		//LOGD("=== st_SysParam device: %s", ID);
+		//ID = pBaseInfo[0].id;
 	}
-	else {
-		if (ID == NULL){
-			LOGD("=== Get device info");
-			ASSERT_OK(TYGetDeviceNumber(&n));
-			LOGD("     - device number %d", n);
-
-			TY_DEVICE_BASE_INFO* pBaseInfo = (TY_DEVICE_BASE_INFO*)buffer;
-			ASSERT_OK(TYGetDeviceList(pBaseInfo, 100, &n));
-
-			if (n == 0){
-				LOGD("=== No device got");
-                return ;
-			}
-			ID = pBaseInfo[0].id;
-		}
-
-		LOGD("=== Open device: %s", ID);
-		ASSERT_OK(TYOpenDevice(ID, &hDevice));
-	}
+	LOGD("=== Open device: %s", ID);
+	ASSERT_OK(TYOpenDevice(ID, &hDevice));
 
 	int32_t allComps;
 	ASSERT_OK(TYGetComponentIDs(hDevice, &allComps));
@@ -767,7 +794,13 @@ void ImageProcessThread::run()
 			break;
 		}
 		else {
-            handleFrame(&frame, &cb_data , (void*)tmpbuffer);
+            handleFrame(&frame, &cb_data , (void*)tempImgBuf);
+		}
+		if(g_IsTemp_btn)
+		{
+			//Open_TempImg();
+			memcpy(tempImgBuf, g_tmpbuffer, BUFF_SIZE);
+			g_IsTemp_btn  = 0;
 		}
         MY_SLEEP_MS(100);
         //usleep(2000);

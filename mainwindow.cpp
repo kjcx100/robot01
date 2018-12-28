@@ -1,3 +1,7 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <iostream>
+
 #include <QSettings>
 #include <QTextCodec>
 #include <QtDebug>
@@ -14,7 +18,13 @@ extern CAMMER_PARA_S g_SysParam;
 extern QString		curr_path;
 extern cv::Mat g_cvOutimg;
 extern cv::Mat g_cvdeepimg;
-
+extern int g_IsTemp_btn;
+extern char* g_tmpbuffer;
+extern int gm_width ;
+extern int gm_hight ;
+extern volatile bool exit_main;
+extern volatile bool save_frame;
+extern volatile bool save_rect_color;
 
 QImage		   g_VideoImage;
 QImage		   g_VideoImageOut;
@@ -77,6 +87,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_TempBtn_clicked()
 {
+#if 0 
     //调用窗口打开文件
     QString filename = QFileDialog::getOpenFileName(this,
                                                     tr("open image"),
@@ -93,6 +104,39 @@ void MainWindow::on_TempBtn_clicked()
 	    img = img.scaled(ui->RawImg->size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 	    ui->RawImg->setPixmap(QPixmap::fromImage(img));
 	}
+#else
+	    //调用窗口打开文件
+    QString filename = QFileDialog::getOpenFileName(this,
+                                                    QObject::tr("open image"),
+                                                    ".",
+                                                    QObject::tr("Image file(*.png *.jpg *.bmp *.yuv)"));
+
+    qDebug("filename=%s\n",filename.toLocal8Bit().data());
+	if(NULL == filename.toLocal8Bit().data())
+	{
+		printf("Error:filename NULL!\n");
+        return ;
+	}	
+	FILE *filetmp;
+    //const char* tempimg = "./template.yuv";
+	filetmp = fopen( filename.toLocal8Bit().data(), "rb");
+	if (NULL == filetmp)
+	{
+		printf("Error:Open tempimg file fail!\n");
+        qDebug("Error:Open tempimg file fail#####%s\n",filename.toLocal8Bit().data());
+        return ;
+	}
+	printf("fopen %s ok,gm_width==%d,gm_hight==%d\n",filename.toLocal8Bit().data(),gm_width,gm_hight);
+	if (gm_width*gm_hight * 2 != fread(g_tmpbuffer, 1, gm_width*gm_hight*2, filetmp))
+	{
+		//提示文件读取错误  
+		fclose(filetmp);
+		printf("Error:read tempimg file fail!\n");
+        return ;
+	}
+	fclose(filetmp);
+	g_IsTemp_btn = 1;
+#endif
 }
 void MainWindow::call_timerDone_1s()
 {
@@ -257,6 +301,31 @@ void MainWindow::EmitOutFrameMessage(cv::Mat* stFrameItem, int nCh)
 	QImage img = cvMat2QImage(g_cvOutimg);//QImage((const unsigned char*)(stFrameItem->data),stFrameItem->cols, stFrameItem->rows, QImage::Format_RGB888);
     SetImageOutImg(&img);
 }
+void MainWindow::keyPressEvent(QKeyEvent *e)
+{
+   if(e->key() == Qt::Key_Enter || e->key() == Qt::Key_Return)
+   {
+		on_SaveBtn_clicked();
+   }
+	int key = -1;
+	//int key = cv::waitKey(1);
+	//LOGD(">>>>>>>>>>key==%d\n", key);
+	switch (e->key()){
+
+	case Qt::Key_Q:
+		exit_main = true;
+		break;
+	case Qt::Key_S:
+		save_frame = true;
+		break;
+	case Qt::Key_A:
+		save_rect_color = true;
+		break;
+	default:
+		break;
+	}
+}
+
 void MainWindow::on_SaveBtn_clicked()
 {
 	printf("###[%s][%d], in!!!\n", __func__, __LINE__);
@@ -283,6 +352,9 @@ void MainWindow::on_SaveBtn_clicked()
 	line_Qby = ui->calib_vertical->text().toLatin1();
     line_getNum = atof(line_Qby);
 	st_SysParam.calib_vertical = line_getNum;
+	line_Qby = ui->Temp_threshold->text().toLatin1();
+    line_getNum = atof(line_Qby);
+	st_SysParam.Temp_threshold = line_getNum;
 	//int
 	line_Qby = ui->PixWidth_Start->text().toLatin1();
     line_getInt = atoi(line_Qby);
@@ -359,6 +431,8 @@ int MainWindow::SetUIDispParam(CAMMER_PARA_S* pstparam)
 	ui->calib_horizon->setText(str);
 	str.sprintf("%.2f",stparam.calib_vertical);
 	ui->calib_vertical->setText(str);
+	str.sprintf("%.2f",stparam.Temp_threshold);
+	ui->Temp_threshold->setText(str);
 	//int
 	str.sprintf("%d",stparam.PixWidth_Start);
 	ui->PixWidth_Start->setText(str);
@@ -418,6 +492,23 @@ void ImageDispThread::run()
     w.show();
 }
 
+
+//===================================================
+//QString  <--> char *
+//===================================================
+int CopyQString2Chars(QString str, char *mm)
+{
+    QByteArray ba = str.toUtf8().data();
+
+	if(mm == NULL)
+		return -1;
+	if(str.length() < 1)
+		return -2;
+
+	strcpy(mm, ba.data());
+    return 0;
+}
+
 ////////////参数保存
 
 int GetCammerSysParam(CAMMER_PARA_S* pstparam)
@@ -465,6 +556,7 @@ int GetCammerSysParamFile(CAMMER_PARA_S* pstparam)
 		pstparam->MorphCloseSize	= pIniFile->value("/CammerParam/MorphCloseSize", "0").toInt();
 		pstparam->calib_horizon 	= pIniFile->value("/CammerParam/calib_horizon", "0").toFloat();
 		pstparam->calib_vertical	= pIniFile->value("/CammerParam/calib_vertical", "0").toFloat();
+		pstparam->Temp_threshold	= pIniFile->value("/CammerParam/Temp_threshold", "0").toFloat();
 		pstparam->threshold_val	 	= pIniFile->value("/CammerParam/threshold_val", "0").toInt();
 		//增益参数
 		pstparam->Gain_thold_min	= pIniFile->value("/CammerParam/Gain_thold_min", "0").toInt();
@@ -479,6 +571,18 @@ int GetCammerSysParamFile(CAMMER_PARA_S* pstparam)
 		pstparam->IsApplyCam03	 		= pIniFile->value("/CammerParam/IsApplyCam03", "0").toInt();
 		pstparam->IsApplyCam04	 		= pIniFile->value("/CammerParam/IsApplyCam04", "0").toInt();
 		pstparam->IsApplyCam05	 		= pIniFile->value("/CammerParam/IsApplyCam05", "0").toInt();
+
+		QString sid1				   = pIniFile->value("/IDParam/id1").toString();
+		CopyQString2Chars(sid1, pstparam->id1);
+		printf("Get id1=%s\n",pstparam->id1);
+		QString sid2				   = pIniFile->value("/IDParam/id2").toString();
+		CopyQString2Chars(sid1, pstparam->id2);
+		QString sid3				   = pIniFile->value("/IDParam/id3").toString();
+		CopyQString2Chars(sid1, pstparam->id3);
+		QString sid4				   = pIniFile->value("/IDParam/id4").toString();
+		CopyQString2Chars(sid1, pstparam->id4);
+		QString sid5				   = pIniFile->value("/IDParam/id5").toString();
+		CopyQString2Chars(sid1, pstparam->id5);
         //printf("GetDynamicPassParamFile,pDynamicPass=%s\n",pDynamicPass);
 		//printf("GetDynamicPassParamFile,pszTime=%s\n",pszTime);
         delete pIniFile;
@@ -529,6 +633,7 @@ int SetCammerSetParamFile(CAMMER_PARA_S* pstparam)
 		pIniFile->setValue("/CammerParam/MorphCloseSize", pstparam->MorphCloseSize);
 		pIniFile->setValue("/CammerParam/calib_horizon", pstparam->calib_horizon);
 		pIniFile->setValue("/CammerParam/calib_vertical", pstparam->calib_vertical);
+		pIniFile->setValue("/CammerParam/Temp_threshold", pstparam->Temp_threshold);
 		pIniFile->setValue("/CammerParam/threshold_val", pstparam->threshold_val);
 		
 		pIniFile->setValue("/CammerParam/Gain_thold_min", pstparam->Gain_thold_min);

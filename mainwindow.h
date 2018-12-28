@@ -5,6 +5,8 @@
 #include <QFileDialog>
 #include <QThread>
 #include <QTimer>
+#include <QKeyEvent>
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include "include/picturebox.h"
@@ -36,7 +38,7 @@ private slots:
     void call_timerDone_1s();
 	void EmitFrameMessage(cv::Mat* stFrameItem, int nCh = 0);
 	void EmitOutFrameMessage(cv::Mat* stFrameItem, int nCh = 0);
-
+	void keyPressEvent(QKeyEvent *);
     void on_SaveBtn_clicked();
 
 private:
