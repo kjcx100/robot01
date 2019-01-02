@@ -41,6 +41,8 @@ private slots:
 	void keyPressEvent(QKeyEvent *);
     void on_SaveBtn_clicked();
 
+    void on_Comb_Cam_currentIndexChanged(int index);
+
 private:
     Ui::MainWindow *ui;
     Mat image;

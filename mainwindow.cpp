@@ -28,6 +28,7 @@ extern volatile bool save_rect_color;
 
 QImage		   g_VideoImage;
 QImage		   g_VideoImageOut;
+int main_PointsLine[gm_width];
 
 ImageProcessThread m_ImageProcessThread;
 
@@ -56,7 +57,7 @@ MainWindow::MainWindow(QWidget *parent) :
     if(pTimer1S)
     {
         connect( pTimer1S, SIGNAL(timeout()), this, SLOT(call_timerDone_1s()) );
-        //pTimer1S->start(1000);              // 1秒单触发定时器
+        pTimer1S->start(1000);              // 1秒单触发定时器
     }
     m_ImageProcessThread.start();
 	qDebug("m_ImageProcessThread start!!!%d\n",__LINE__);
@@ -140,6 +141,7 @@ void MainWindow::on_TempBtn_clicked()
 }
 void MainWindow::call_timerDone_1s()
 {
+#if 0
     char szFilename[32] = {0};
 
     Timer_Count++;
@@ -151,7 +153,12 @@ void MainWindow::call_timerDone_1s()
     SetImageMat(&g_cvimg);
     if(Timer_Count > 10)
         Timer_Count = 0;
-
+#endif
+	if(m_ImageProcessThread.bStop)
+	{
+		m_ImageProcessThread.start();
+		m_ImageProcessThread.bStop = false;
+	}
 }
 void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 {
@@ -412,6 +419,14 @@ void MainWindow::on_SaveBtn_clicked()
 	SetUIDispParam(&st_SysParam);
 }
 
+void MainWindow::on_Comb_Cam_currentIndexChanged(int index)
+{
+	printf("###[%s][%d], in!!!,index==%d\n", __func__, __LINE__,index);
+	m_ImageProcessThread.stop();
+	on_SaveBtn_clicked();
+	
+}
+
 int MainWindow::SetUIDispParam(CAMMER_PARA_S* pstparam)
 {
 	if(pstparam == NULL)
@@ -576,13 +591,13 @@ int GetCammerSysParamFile(CAMMER_PARA_S* pstparam)
 		CopyQString2Chars(sid1, pstparam->id1);
 		printf("Get id1=%s\n",pstparam->id1);
 		QString sid2				   = pIniFile->value("/IDParam/id2").toString();
-		CopyQString2Chars(sid1, pstparam->id2);
+		CopyQString2Chars(sid2, pstparam->id2);
 		QString sid3				   = pIniFile->value("/IDParam/id3").toString();
-		CopyQString2Chars(sid1, pstparam->id3);
+		CopyQString2Chars(sid3, pstparam->id3);
 		QString sid4				   = pIniFile->value("/IDParam/id4").toString();
-		CopyQString2Chars(sid1, pstparam->id4);
+		CopyQString2Chars(sid4, pstparam->id4);
 		QString sid5				   = pIniFile->value("/IDParam/id5").toString();
-		CopyQString2Chars(sid1, pstparam->id5);
+		CopyQString2Chars(sid5, pstparam->id5);
         //printf("GetDynamicPassParamFile,pDynamicPass=%s\n",pDynamicPass);
 		//printf("GetDynamicPassParamFile,pszTime=%s\n",pszTime);
         delete pIniFile;
@@ -660,6 +675,7 @@ int SetCammerSetParamFile(CAMMER_PARA_S* pstparam)
 
     return -1;
 }
+
 
 
 

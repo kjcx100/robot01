@@ -18,15 +18,16 @@ volatile bool exit_main;
 volatile bool save_frame;
 volatile bool save_rect_color;
 static int gsave_rect_count = 0;
+extern CAMMER_PARA_S g_SysParam;
+extern int main_PointsLine[gm_width];
 
 cv::Mat g_cvimg;
 Mat g_cvdeepimg;
 Mat g_cvOutimg;
 int g_IsTemp_btn = 0;
-int gm_width = 640;
-int gm_hight = 480;
 
-#define CVIMGSHOW   0
+
+#define CVIMGSHOW   1
 
 //另一个线程读取图像
 BTCommunThread::BTCommunThread(QObject *parent) :
@@ -266,6 +267,11 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 	int SOBEL_X_WEIGHT = 1;
 	CAMMER_PARA_S st_SysParam;
 	GetCammerSysParam(&st_SysParam);
+	//memset(m_PointsLine , 0 ,sizeof(int)*gm_width);
+	for(int i=0; i < gm_width ; i++)
+	{
+		m_PointsLine[i] = gm_hight ;
+	}
 	
 	Mat mat_blur;
 	Mat In_rgb = resized_color.clone();
@@ -300,7 +306,7 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 	Mat abs_grad_x, abs_grad_y;
 
 	Mat mat_threshold;
-	double otsu_thresh_val = threshold(mat_gray, mat_threshold, st_SysParam.threshold_val, 255, CV_THRESH_BINARY_INV);
+	double otsu_thresh_val = threshold(mat_gray, mat_threshold, st_SysParam.threshold_val, 255, CV_THRESH_BINARY);
 	//threshold(grad, mat_threshold, 0, 255, CV_THRESH_OTSU + CV_THRESH_BINARY);
 	//############先开操作，去掉一些小的区域####################
 	//int Open_morphW = 3;
@@ -645,6 +651,7 @@ void ImageProcessThread::run()
 	const char* IP = NULL;
 	const char* ID = NULL;
 	TY_DEV_HANDLE hDevice;
+	GetCammerSysParamFile(&g_SysParam);
 	CAMMER_PARA_S st_SysParam;
 	GetCammerSysParam(&st_SysParam);
 	
