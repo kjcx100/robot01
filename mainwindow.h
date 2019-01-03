@@ -26,6 +26,7 @@ public:
     void SetImageData(uchar* data,int imgcols,int imgrows);
 	void SetImageQimage(QImage *img);
 	void SetImageOutImg(QImage *img);	
+	void SetImageRawTempImg(QImage *img);	
     void SetImageMat(Mat *cvmat);
 	int SetUIDispParam(CAMMER_PARA_S* pstparam);
 	QImage cvMat2QImage(const cv::Mat& mat);
@@ -38,6 +39,7 @@ private slots:
     void call_timerDone_1s();
 	void EmitFrameMessage(cv::Mat* stFrameItem, int nCh = 0);
 	void EmitOutFrameMessage(cv::Mat* stFrameItem, int nCh = 0);
+	void EmitRawTempMessage(cv::Mat* stFrameItem, int nCh = 0);
 	void keyPressEvent(QKeyEvent *);
     void on_SaveBtn_clicked();
 

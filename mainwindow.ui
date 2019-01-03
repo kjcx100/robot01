@@ -920,6 +920,38 @@
      <string>模板转换阀值</string>
     </property>
    </widget>
+   <widget class="QLabel" name="Raw_Temp">
+    <property name="geometry">
+     <rect>
+      <x>440</x>
+      <y>442</y>
+      <width>540</width>
+      <height>420</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string/>
+    </property>
+    <property name="pixmap">
+     <pixmap resource="bg_img/bg_img.qrc">:/bg_img/robot_bgimg.jpg</pixmap>
+    </property>
+   </widget>
+   <widget class="QLabel" name="ApyToCam_35">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
+    <property name="geometry">
+     <rect>
+      <x>440</x>
+      <y>442</y>
+      <width>71</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>减模板图</string>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">

@@ -1,7 +1,9 @@
 #ifndef DEFINE_H
 #define DEFINE_H
 
-#define  APP_PATH		"."
+#define  	APP_PATH		"."
+#define		DEEPIMG_WIDTH	640
+#define		DEEPIMG_HEIGHT	480
 
 typedef struct _CAMMER_PARA_S			// size = 64
 {

@@ -19,15 +19,19 @@ volatile bool save_frame;
 volatile bool save_rect_color;
 static int gsave_rect_count = 0;
 extern CAMMER_PARA_S g_SysParam;
-extern int main_PointsLine[gm_width];
+extern int main_PointsLine[DEEPIMG_WIDTH];
 
 cv::Mat g_cvimg;
 Mat g_cvdeepimg;
 Mat g_cvOutimg;
+Mat g_cvRawTempimg;
+
 int g_IsTemp_btn = 0;
+int gm_width = 640;
+int gm_hight = 480;
 
 
-#define CVIMGSHOW   1
+#define CVIMGSHOW   0
 
 //另一个线程读取图像
 BTCommunThread::BTCommunThread(QObject *parent) :
@@ -205,8 +209,8 @@ void ImageProcessThread::depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat*
 		}
 		else if((src_data[i] - t_data[i]) < (-1 * treshhold))
 		{
-			dst_data[i] = 0;
-			//dst_data[i] = 1200;
+			//dst_data[i] = 0;
+			dst_data[i] = 1200;
 		}
 		else if((src_data[i] - t_data[i]) > (treshhold * 1.5))
 		{
@@ -265,24 +269,25 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 	int SOBEL_DELTA = 0.5;
 	int SOBEL_DDEPTH = CV_16S;
 	int SOBEL_X_WEIGHT = 1;
+	int MIDBLUR_DRAW_LINE = 3;
 	CAMMER_PARA_S st_SysParam;
 	GetCammerSysParam(&st_SysParam);
 	//memset(m_PointsLine , 0 ,sizeof(int)*gm_width);
 	for(int i=0; i < gm_width ; i++)
 	{
-		m_PointsLine[i] = gm_hight ;
+		m_PointsLine[i] = 0 ;
 	}
 	
-	Mat mat_blur;
+	//Mat mat_blur;
 	Mat In_rgb = resized_color.clone();
-	mat_blur = depthColor.clone();
-	GaussianBlur(depthColor, mat_blur, Size(blurSize, blurSize), 0, 0, BORDER_DEFAULT);
+	//mat_blur = depthColor.clone();
+	//GaussianBlur(depthColor, mat_blur, Size(blurSize, blurSize), 0, 0, BORDER_DEFAULT);
 
 	Mat mat_gray;
-	if (mat_blur.channels() == 3)
-		cvtColor(mat_blur, mat_gray, CV_RGB2GRAY);
+	if (depthColor.channels() == 3)
+		cvtColor(depthColor, mat_gray, CV_RGB2GRAY);
 	else
-		mat_gray = mat_blur;
+		mat_gray = depthColor;
 	//输入depth图像先切掉两块 上边，左边
 	for (int i = 0; i <  mat_gray.rows; i++)
 	{
@@ -422,6 +427,10 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 					//输出到rgb
 					circle(depthColor, P, 0, Scalar(255, 255, 0));
 					circle(In_rgb, P, 0, Scalar(255, 255, 0));
+					if(m_PointsLine[P.x] < P.y)
+					{
+						m_PointsLine[P.x] = P.y;
+					}
 				}
 			}
 			else//不满足条件的，填充黑色
@@ -444,6 +453,22 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 		}
 		++itc;
 		++Count_contours;
+	}
+	for (int j = 0; j < DEEPIMG_WIDTH; j++)
+	{
+		//绘制出m_PointsLine向量内所有的像素点
+		Point P = Point(j, m_PointsLine[j]);
+		//输出到rgb
+		if(j > MIDBLUR_DRAW_LINE && (j < (DEEPIMG_WIDTH - MIDBLUR_DRAW_LINE)))
+		{
+			if(abs(m_PointsLine[j+1] - m_PointsLine[j]) > 10 )	//点距相差过大，画线
+			{
+				Point P2 = Point(j+1, m_PointsLine[j+1]);
+				line(depthColor,P,P2,Scalar(0, 128, 128),2);
+			}else
+				circle(depthColor, P, 0, Scalar(0, 128, 128),2);
+		}else
+			circle(depthColor, P, 0, Scalar(0, 128, 128),2);
 	}
     #if CVIMGSHOW
 	imshow("in_add_rect", depthColor);
@@ -477,7 +502,9 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 	#endif
 	if(depthColor.data != NULL )
 	{
-		g_cvOutimg = depthColor.clone();
+		cv::Rect rect(st_SysParam.PixWidth_End, st_SysParam.PixHight_End, depthColor.rows - st_SysParam.PixWidth_End, depthColor.cols - st_SysParam.PixHight_End);
+		//Mat imageROI = depthColor(rect);
+		g_cvOutimg = depthColor.clone();//imageROI.clone();//depthColor.clone();
 		emit EmitOutFrameMessage(&g_cvOutimg,0);
 	}
 	#if CVIMGSHOW
@@ -506,11 +533,12 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 	if (!depth.empty()){
 				/////lxl add///////
 		cv::Mat tempDepth = cv::Mat(depth.rows, depth.cols, CV_16U, (uint16_t *)tempdata);
-		//for(int i =0 ; i < depth.rows*depth.cols ; i ++)
-		//depth = depth - tempDepth ;	//ʮ׈ͼݵȥģѥ
+		Mat mat_blur;
+		//mat_blur = depth.clone();
+		GaussianBlur(depth, mat_blur, Size(st_SysParam.GussBlurSize, st_SysParam.GussBlurSize), 0, 0, BORDER_DEFAULT);		
 		//lxl modify 12-27	不用rgb直接用深度图，所以不用换算坐标
         //cv::Mat Depth2 = cvMatRect2Tetra(depth, 18, 8, depth.cols - 1 + 7, 8, 46, depth.rows -1 - 7, depth.cols - 1 + 7, depth.rows - 1 - 7, depth.cols, depth.rows);
-		depthTransfer(depth, (uint16_t*)tempdata, &TransDepth, &blackDepth);
+		depthTransfer(mat_blur, (uint16_t*)tempdata, &TransDepth, &blackDepth);
 		cv::resize(color, resized_color, depth.size());
 		#if CVIMGSHOW
 		cv::imshow("resizedColor", resized_color);
@@ -526,7 +554,10 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		//lxl modify 2018-12-27 直接显示deep原图
 		cv::Mat RawdepthColor = pData->render->Compute(depth);
 		g_cvdeepimg = RawdepthColor.clone();
-		
+		emit EmitFrameMessage(&g_cvdeepimg,0);
+		//printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);
+		g_cvRawTempimg = depthColor.clone();
+		emit EmitRawTempMessage(&g_cvRawTempimg,0);
 		if (save_frame){
 			LOGD(">>>>>>>>>> write depthColor");
 			imwrite("TransdepthColor.png", depthColor);
@@ -534,8 +565,6 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		}
 		//g_cvdeepimg = depthColor.clone();	//lxl modify 2018-12-27
 		//depthColor = depthColor / 2 + resized_color / 2;
-		emit EmitFrameMessage(&g_cvdeepimg,0);
-		//printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);
 		#if CVIMGSHOW
 		cv::imshow("projected depth", depthColor);
 		#endif

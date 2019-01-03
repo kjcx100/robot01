@@ -18,6 +18,8 @@ extern CAMMER_PARA_S g_SysParam;
 extern QString		curr_path;
 extern cv::Mat g_cvOutimg;
 extern cv::Mat g_cvdeepimg;
+extern cv::Mat g_cvRawTempimg;
+
 extern int g_IsTemp_btn;
 extern char* g_tmpbuffer;
 extern int gm_width ;
@@ -28,7 +30,7 @@ extern volatile bool save_rect_color;
 
 QImage		   g_VideoImage;
 QImage		   g_VideoImageOut;
-int main_PointsLine[gm_width];
+int main_PointsLine[DEEPIMG_WIDTH];
 
 ImageProcessThread m_ImageProcessThread;
 
@@ -63,12 +65,13 @@ MainWindow::MainWindow(QWidget *parent) :
 	qDebug("m_ImageProcessThread start!!!%d\n",__LINE__);
 	connect(&m_ImageProcessThread, SIGNAL(EmitFrameMessage(cv::Mat*, int)), this, SLOT(EmitFrameMessage(cv::Mat*, int)));
 	connect(&m_ImageProcessThread, SIGNAL(EmitOutFrameMessage(cv::Mat*, int)), this, SLOT(EmitOutFrameMessage(cv::Mat*, int)));
+	connect(&m_ImageProcessThread, SIGNAL(EmitRawTempMessage(cv::Mat*, int)), this, SLOT(EmitRawTempMessage(cv::Mat*, int)));
 
 }
 void MainWindow::paintEvent(QPaintEvent *)
 {
 	//绘制结果显示背景	26+420+420	-->>40+420+420
-	drawRectInPos(ui->RawImg->x(),ui->RawImg->y() + ui->RawImg->height() + 40,ui->RawImg->width(),ui->RawImg->height());
+	drawRectInPos(ui->RawImg->x()+560,ui->RawImg->y() + ui->RawImg->height() + 40,ui->RawImg->width(),ui->RawImg->height());
 	//drawRectInPos(100,100,100,100);
 
 }
@@ -225,6 +228,15 @@ void MainWindow::SetImageOutImg(QImage *img)
         ui->OutImg->setPixmap(QPixmap::fromImage(*img));
     }
 }
+void MainWindow::SetImageRawTempImg(QImage *img)
+{
+    if(img != NULL) {
+        //设定图像大小自适应label窗口的大小
+        img->scaled(ui->Raw_Temp->size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        ui->Raw_Temp->setPixmap(QPixmap::fromImage(*img));
+    }
+}
+
 
 void MainWindow::SetImageMat(Mat *cvmat)
 {
@@ -308,6 +320,15 @@ void MainWindow::EmitOutFrameMessage(cv::Mat* stFrameItem, int nCh)
 	QImage img = cvMat2QImage(g_cvOutimg);//QImage((const unsigned char*)(stFrameItem->data),stFrameItem->cols, stFrameItem->rows, QImage::Format_RGB888);
     SetImageOutImg(&img);
 }
+void MainWindow::EmitRawTempMessage(cv::Mat* stFrameItem, int nCh)
+{
+	if(pVideoImage == NULL)
+		return;
+	//QSize outsize = ui->OutImg->size();
+	QImage img = cvMat2QImage(g_cvRawTempimg);//QImage((const unsigned char*)(stFrameItem->data),stFrameItem->cols, stFrameItem->rows, QImage::Format_RGB888);
+    SetImageRawTempImg(&img);
+}
+
 void MainWindow::keyPressEvent(QKeyEvent *e)
 {
    if(e->key() == Qt::Key_Enter || e->key() == Qt::Key_Return)

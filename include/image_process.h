@@ -11,9 +11,6 @@
 #include "define.h"
 #include "../common/common.hpp"
 
-int gm_width = 640;
-int gm_hight = 480;
-
 void MY_SLEEP_MS(int ms);
 void MY_SLEEP_NS(int s);
 
@@ -51,9 +48,10 @@ public:
 signals: 
 	void EmitFrameMessage(cv::Mat* stFrameItem, int nCh = 0); 
 	void EmitOutFrameMessage(cv::Mat* stFrameItem, int nCh = 0); 
+	void EmitRawTempMessage(cv::Mat* stFrameItem, int nCh = 0); 
 
 private:
-	int m_PointsLine[gm_width];	//存储障碍物曲线的points
+	int m_PointsLine[DEEPIMG_WIDTH];	//存储障碍物曲线的points
 
 };
 #endif // IMAGE_PROCESS_H
