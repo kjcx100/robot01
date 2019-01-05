@@ -200,6 +200,15 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	painter.drawText(start_x + 4, start_y + 24, tr("极坐标图"));
 	
 }
+//画障碍物曲线，以画框中心为原点，极坐标的方式
+void MainWindow::drawBarrierLine(int start_x,int start_y,int w,int h)
+{
+	QPainter painter(this);
+    //创建画笔
+    QPen pen(Qt::red, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+	
+	
+}
 
 void MainWindow::SetImageData(uchar* data,int imgcols,int imgrows)
 {

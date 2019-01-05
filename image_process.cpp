@@ -456,6 +456,29 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 	}
 	for (int j = 0; j < DEEPIMG_WIDTH; j++)
 	{
+		//找出第一个有效的点
+		if(0 != m_PointsLine[j] && (j > MIDBLUR_DRAW_LINE))	//
+		{
+			m_PointsLine[0] = m_PointsLine[j];
+			m_PointsLine[1] = m_PointsLine[j];
+			m_PointsLine[2] = m_PointsLine[j];
+			//printf("The first useful Point is %d\n",j);
+			break;
+		}
+	}
+	for (int j = 0; j < DEEPIMG_WIDTH; j++)
+	{
+		//输出到rgb
+		if(j >= MIDBLUR_DRAW_LINE)
+		{
+			if(0 == m_PointsLine[j] && m_PointsLine[j-1] != 0)	//点无变化
+			{
+				m_PointsLine[j] = m_PointsLine[j-1];
+			}
+		}
+	}
+	for (int j = 0; j < DEEPIMG_WIDTH; j++)
+	{
 		//绘制出m_PointsLine向量内所有的像素点
 		Point P = Point(j, m_PointsLine[j]);
 		//输出到rgb
@@ -837,6 +860,10 @@ void ImageProcessThread::run()
 			//Open_TempImg();
 			memcpy(tempImgBuf, g_tmpbuffer, BUFF_SIZE);
 			g_IsTemp_btn  = 0;
+		}
+		if(m_PointsLine[0] != 0)
+		{
+			memcpy(main_PointsLine, m_PointsLine, sizeof(int)*DEEPIMG_WIDTH);
 		}
         MY_SLEEP_MS(100);
         //usleep(2000);
