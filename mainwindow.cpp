@@ -31,7 +31,13 @@ extern volatile bool save_rect_color;
 QImage		   g_VideoImage;
 QImage		   g_VideoImageOut;
 int main_PointsLine[DEEPIMG_WIDTH];
-
+int g_is_point_OK = 0;
+float SINX[90] = {0.0175,0.0349,0.0523,0.0698,0.0872,0.1045,0.1287,0.1392,0.1564,0.1737,0.1908,0.2079,0.2250,0.2419,0.2589,
+				0.2756,0.2924,0.3090,0.3256,0.3420,0.3584,0.3746,0.3907,0.4067,0.4226,0.4384,0.4540,0.4695,0.4848,0.5000,
+				0.5151,0.5300,0.5446,0.5600,0.5736,0.5878,0.6018,0.6157,0.6293,0.6428,0.6560,0.6691,0.6820,0.6747,0.7071,
+				0.7200,0.7314,0.7431,0.7547,0.7660,0.7771,0.7880,0.7986,0.8090,0.8191,0.8290,0.8387,0.8480,0.8572,0.8660,
+				0.8746,0.8829,0.8910,0.8989,0.9063,0.9135,0.9205,0.9272,0.9336,0.9367,0.9455,0.9510,0.9563,0.9613,0.9660,
+				0.9703,0.9744,0.9785,0.9816,0.9848,0.9878,0.9902,0.9925,0.9945,0.9962,0.9976,0.9986,0.9993,0.9998,1.0000};
 ImageProcessThread m_ImageProcessThread;
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -52,7 +58,7 @@ MainWindow::MainWindow(QWidget *parent) :
     if(pTimer500ms)
     {
         connect( pTimer500ms, SIGNAL(timeout()), this, SLOT(call_timerDone_500ms()));
-        pTimer500ms->start(500);              // 500ms单触发定时器
+        pTimer500ms->start(150);              // 50ms单触发定时器
     }
     //Time  1s
     pTimer1S = new QTimer(this);
@@ -67,21 +73,29 @@ MainWindow::MainWindow(QWidget *parent) :
 	connect(&m_ImageProcessThread, SIGNAL(EmitOutFrameMessage(cv::Mat*, int)), this, SLOT(EmitOutFrameMessage(cv::Mat*, int)));
 	connect(&m_ImageProcessThread, SIGNAL(EmitRawTempMessage(cv::Mat*, int)), this, SLOT(EmitRawTempMessage(cv::Mat*, int)));
 
+	for(int i=0; i < gm_width ; i++)
+	{
+		main_PointsLine[i] = 0 ;
+	}
 }
 void MainWindow::paintEvent(QPaintEvent *)
 {
 	//绘制结果显示背景	26+420+420	-->>40+420+420
 	drawRectInPos(ui->RawImg->x()+560,ui->RawImg->y() + ui->RawImg->height() + 40,ui->RawImg->width(),ui->RawImg->height());
+	//drawBarrierLine(ui->RawImg->x()+560,ui->RawImg->y() + ui->RawImg->height() + 40,ui->RawImg->width(),ui->RawImg->height());
 	//drawRectInPos(100,100,100,100);
 
 }
 
 void MainWindow::call_timerDone_500ms()
 {
-    printf("call_timerDone_500ms:: line=%d\n",__LINE__);
-    pTimer500ms->stop();
-   // m_ImageProcessThread.start();
-    //Init();
+    //printf("call_timerDone_500ms:: line=%d\n",__LINE__);
+    //pTimer500ms->stop();
+	if(g_is_point_OK)
+	{
+		g_is_point_OK = 0;
+		update();
+	}
 }
 
 MainWindow::~MainWindow()
@@ -165,6 +179,8 @@ void MainWindow::call_timerDone_1s()
 }
 void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 {
+	
+	printf("drawRectInPos:: line=%d\n",__LINE__);
     QPainter painter(this);
     //创建画笔
     QPen pen(Qt::green, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
@@ -180,6 +196,7 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
     pen.setWidth(1);
     pen.setColor(Qt::white);
     painter.setPen(pen);
+
 	int circleNum = 8;
 	painter.drawLine( QPoint(start_x ,start_y + h/2), QPoint(start_x + w,start_y + h/2));
 	painter.drawLine( QPoint(start_x + w/2,start_y), QPoint(start_x + w/2,start_y + h));
@@ -198,15 +215,82 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	//使用字体
 	painter.setFont(font);
 	painter.drawText(start_x + 4, start_y + 24, tr("极坐标图"));
-	
+
+	//###############分割线
+	#if 1
+	//重新设置画笔
+    pen.setWidth(2);
+    pen.setColor(Qt::red);
+    painter.setPen(pen);
+	int qPNum = 60;
+	int halfqPNum = 30;
+	QPoint DrawPoint[qPNum];
+	int PointsLine[qPNum];
+	for(int a = 0;a < qPNum; a++)
+	{
+		PointsLine[a] = main_PointsLine[39 + a*10];
+	}
+	for(int a = 0;a <= halfqPNum; a++)
+	{
+		DrawPoint[a].setX(start_x + w/2 - (DEEPIMG_HEIGHT - PointsLine[a])/2*SINX[90-60-a]);
+		DrawPoint[a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[a])/2*SINX[60+a]);
+		//DrawPoint[a].setX(start_x + w/2 - (DEEPIMG_HEIGHT)/4*SINX[90-60-a]);
+		//DrawPoint[a].setY(start_y + h/2 - (DEEPIMG_HEIGHT)/4*SINX[60+a]);
+		//painter.drawPoint(DrawPoint[a]);
+		//for test
+		//painter.drawPoint(QPoint(start_x + w/2 +100,start_y + h/2 + a+100));
+		//for test end
+	}
+	for(int a = 30;a <= qPNum; a++)
+	{
+		DrawPoint[a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[a])/2*SINX[a - 30]);
+		DrawPoint[a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[a])/2*SINX[120 - a]);
+		//DrawPoint[a].setX(start_x + w/2 + (DEEPIMG_HEIGHT)/4*SINX[a - 30]);
+		//DrawPoint[a].setY(start_y + h/2 - (DEEPIMG_HEIGHT)/4*SINX[120 - a]);
+		//painter.drawPoint(DrawPoint[a]);
+	}
+	DrawPoint[30].setX(start_x + w/2);
+	DrawPoint[30].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[30])/2);
+	for(int a = 0;a < qPNum -1; a++)
+	{
+		//if(abs(DrawPoint[a].y() - DrawPoint[a+1].y()) > 10 )	//点距相差过大，
+		//	DrawPoint[a+1].setY(DrawPoint[a].y());
+		painter.drawLine(DrawPoint[a], DrawPoint[a+1]);
+		//QPoint qPLine;
+		//qPLine.setX(start_x + w/2 +a);
+		//qPLine.setY(start_y + h/2 - PointsLine[a]);
+		//painter.drawPoint(qPLine);
+	}
+	#endif
 }
 //画障碍物曲线，以画框中心为原点，极坐标的方式
 void MainWindow::drawBarrierLine(int start_x,int start_y,int w,int h)
 {
+	//printf("drawBarrierLine:: line=%d\n",__LINE__);
 	QPainter painter(this);
     //创建画笔
     QPen pen(Qt::red, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
-	
+	painter.setPen(pen);
+	int qPNum = 60;
+	int halfqPNum = 30;
+	QPoint DrawPoint[qPNum];
+	int PointsLine[qPNum];
+	for(int a = 0;a < qPNum; a++)
+	{
+		PointsLine[a] = main_PointsLine[39 + a*10];
+	}
+	for(int a = 0;a <= halfqPNum; a++)
+	{
+		DrawPoint[a].setX(start_x + w/2 - (DEEPIMG_HEIGHT - PointsLine[a])*SINX[90-60-a]);
+		DrawPoint[a].setY(start_y + h/2 + (DEEPIMG_HEIGHT - PointsLine[a])*SINX[60+a]);
+		painter.drawPoint(DrawPoint[a]);
+	}
+	for(int a = 31;a <= halfqPNum; a++)
+	{
+		DrawPoint[a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[a])*SINX[a-30]);
+		DrawPoint[a].setY(start_y + h/2 + (DEEPIMG_HEIGHT - PointsLine[a])*(1-SINX[a-30]) );
+		painter.drawPoint(DrawPoint[a]);
+	}
 	
 }
 

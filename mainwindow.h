@@ -31,6 +31,7 @@ public:
 	int SetUIDispParam(CAMMER_PARA_S* pstparam);
 	QImage cvMat2QImage(const cv::Mat& mat);
 	void drawRectInPos(int start_x,int start_y,int w,int h);
+	void drawBarrierLine(int start_x,int start_y,int w,int h);
     ~MainWindow();
 
 private slots:

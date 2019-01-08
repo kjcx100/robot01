@@ -20,6 +20,7 @@ volatile bool save_rect_color;
 static int gsave_rect_count = 0;
 extern CAMMER_PARA_S g_SysParam;
 extern int main_PointsLine[DEEPIMG_WIDTH];
+extern int g_is_point_OK;
 
 cv::Mat g_cvimg;
 Mat g_cvdeepimg;
@@ -425,8 +426,8 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 					//绘制出contours向量内所有的像素点
 					Point P = Point(contours[Count_contours][j].x, contours[Count_contours][j].y);
 					//输出到rgb
-					circle(depthColor, P, 0, Scalar(255, 255, 0));
-					circle(In_rgb, P, 0, Scalar(255, 255, 0));
+					//circle(depthColor, P, 0, Scalar(255, 255, 0));
+					//circle(In_rgb, P, 0, Scalar(255, 255, 0));
 					if(m_PointsLine[P.x] < P.y)
 					{
 						m_PointsLine[P.x] = P.y;
@@ -435,7 +436,7 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 			}
 			else//不满足条件的，填充黑色
 			{
-				rectangle(depthColor, safeBoundRect, Scalar(0, 255, 0));
+				//rectangle(depthColor, safeBoundRect, Scalar(0, 255, 0));
 				Mat FillImg = Mat::zeros(safeBoundRect.height, safeBoundRect.width, CV_8UC1);
 				//cout << "FillImg.cols:" << FillImg.cols << "  FillImg.rows:" << FillImg.rows << endl;
 				Rect fillRect = safeBoundRect;
@@ -864,6 +865,7 @@ void ImageProcessThread::run()
 		if(m_PointsLine[0] != 0)
 		{
 			memcpy(main_PointsLine, m_PointsLine, sizeof(int)*DEEPIMG_WIDTH);
+			g_is_point_OK = 1;
 		}
         MY_SLEEP_MS(100);
         //usleep(2000);
