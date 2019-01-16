@@ -25,7 +25,38 @@ int main(int argc, char *argv[])
     qDebug( "curr path = %s\n",		qPrintable(curr_path));
 	qDebug( "curr_path_tmp = %s\n",	qPrintable(curr_path_tmp));
 	GetCammerSysParamFile(&g_SysParam);
-
+	///////////检测参数合法否
+	if(g_SysParam.EditVer_Angl < 0 || g_SysParam.EditVer_Angl > 85)
+	{
+		g_SysParam.EditVer_Angl = 45;
+		printf("set EditVer_Angl 45\n");
+		//SetCammerSetParamFile(&g_SysParam);
+	}
+	if(g_SysParam.Edit_instalHeight < 0 || g_SysParam.Edit_instalHeight > 185)
+	{
+		g_SysParam.Edit_instalHeight = 45;
+		printf("set Edit_instalHeight 45\n");
+		//SetCammerSetParamFile(&g_SysParam);
+	}
+	if(g_SysParam.Temp_threshold < 0.01 || g_SysParam.Temp_threshold > 10)
+	{
+		g_SysParam.Temp_threshold = 0.03;
+		printf("set Temp_threshold 0.03\n");
+		//SetCammerSetParamFile(&g_SysParam);
+	}
+	if(g_SysParam.Gain_max < 10)
+	{
+		g_SysParam.Gain_max = 250;
+		printf("set Gain_max 250\n");
+		//SetCammerSetParamFile(&g_SysParam);
+	}
+	if(g_SysParam.Gain_thold_max < 10)
+	{
+		g_SysParam.Gain_thold_max = 100;
+		printf("set Gain_thold_max 100\n");
+		//SetCammerSetParamFile(&g_SysParam);
+	}
+	SetCammerSetParamFile(&g_SysParam);
 	m_mainwin.SetUIDispParam(&g_SysParam);
     //qDebug("main start!!!%d\n",__LINE__);
     //m_BTCommunThread.start();

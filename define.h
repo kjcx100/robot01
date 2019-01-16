@@ -16,6 +16,7 @@ typedef struct _CAMMER_PARA_S			// size = 64
 	int 		PixHight_End;
 	float		EditHor_Angl;	//安装角度
 	float		EditVer_Angl;
+	int			Edit_instalHeight;	//安装高度
 //滤波参数
 	int 		GussBlurSize;	//高斯滤波
 	int			MidBlurSize;

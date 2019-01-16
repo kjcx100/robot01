@@ -38,6 +38,13 @@ float SINX[90] = {0.0175,0.0349,0.0523,0.0698,0.0872,0.1045,0.1287,0.1392,0.1564
 				0.7200,0.7314,0.7431,0.7547,0.7660,0.7771,0.7880,0.7986,0.8090,0.8191,0.8290,0.8387,0.8480,0.8572,0.8660,
 				0.8746,0.8829,0.8910,0.8989,0.9063,0.9135,0.9205,0.9272,0.9336,0.9367,0.9455,0.9510,0.9563,0.9613,0.9660,
 				0.9703,0.9744,0.9785,0.9816,0.9848,0.9878,0.9902,0.9925,0.9945,0.9962,0.9976,0.9986,0.9993,0.9998,1.0000};
+float TANX[90] = {0.0175,0.0369,0.0524,0.0699,0.0875,0.1051,0.1228,0.1405,0.1584,0.1763,0.1944,0.2126,0.2309,0.2493,0.2679,
+				0.2867,0.3057,0.3249,0.3443,0.3639,0.3839,0.4040,0.4245,0.4452,0.4663,0.4877,0.5095,0.5317,0.5543,0.5773,
+				0.6008,0.6249,0.6494,0.6745,0.7002,0.7265,0.7535,0.7813,0.8098,0.8391,0.8693,0.9004,0.9324,0.9657,1.0000,
+				1.0355,1.0724,1.1106,1.1503,1.1917,1.2349,1.2799,1.3270,1.3764,1.4281,1.4826,1.5399,1.6000,1.6643,1.7320,
+				1.8040,1.8807,1.9626,2.0503,2.1445,2.2460,2.3558,2.4750,2.6051,2.7475,2.9042,3.0777,3.2708,3.4874,3.7320,
+				4.0108,4.3315,4.7046,5.1445,5.6713,6.3137,7.1154,8.1444,9.5144,11.430,11.430,11.430,11.430,11.430,11.430};
+
 ImageProcessThread m_ImageProcessThread;
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -180,10 +187,12 @@ void MainWindow::call_timerDone_1s()
 void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 {
 	
-	printf("drawRectInPos:: line=%d\n",__LINE__);
+	//printf("drawRectInPos:: line=%d\n",__LINE__);
     QPainter painter(this);
     //创建画笔
     QPen pen(Qt::green, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+	CAMMER_PARA_S st_SysParam;
+	GetCammerSysParam(&st_SysParam);
 	    // 创建画刷
     //QBrush brush(QColor(0, 0, 0), Qt::SolidPattern);
     // 使用画刷
@@ -226,9 +235,15 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	int halfqPNum = 30;
 	QPoint DrawPoint[qPNum];
 	int PointsLine[qPNum];
+	int DisPointsLine[qPNum];	//由point转换为距离 dispoint = PointsLine/tan(x)
+	int DisLine[qPNum];
 	for(int a = 0;a < qPNum; a++)
 	{
 		PointsLine[a] = main_PointsLine[39 + a*10];
+		//DisPointsLine[a] = PointsLine[a]/(TANX[(int)st_SysParam.EditVer_Angl]);
+		//DisPointsLine[a] > h ? h : DisPointsLine[a];
+		DisLine[a] = st_SysParam.Edit_instalHeight*TANX[(int)((DEEPIMG_HEIGHT - PointsLine[a])/10 + st_SysParam.EditVer_Angl-23)];
+		DisLine[a] > h ? h : DisLine[a];
 	}
 	for(int a = 0;a <= halfqPNum; a++)
 	{
@@ -261,6 +276,27 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 		//qPLine.setY(start_y + h/2 - PointsLine[a]);
 		//painter.drawPoint(qPLine);
 	}
+	////画角度变换后的线//////////
+	//重新设置画笔
+    pen.setWidth(2);
+    pen.setColor(Qt::yellow);
+    painter.setPen(pen);
+	for(int a = 0;a <= halfqPNum; a++)
+	{
+		DrawPoint[a].setX(start_x + w/2 - (DisLine[a])*2*SINX[90-60-a]);
+		DrawPoint[a].setY(start_y + h/2 - (DisLine[a])*2*SINX[60+a]);
+	}
+	for(int a = 30;a <= qPNum; a++)
+	{
+		//DrawPoint[a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - DisLine[a])/2*SINX[a - 30]);
+		DrawPoint[a].setX(start_x + w/2 + (DisLine[a])*2*SINX[a - 30]);
+		DrawPoint[a].setY(start_y + h/2 - (DisLine[a])*2*SINX[120 - a]);
+	}
+	DrawPoint[30].setX(start_x + w/2);
+	DrawPoint[30].setY(start_y + h/2 - (DisLine[30])*2);
+	for(int a = 0;a < qPNum -1; a++)
+		painter.drawLine(DrawPoint[a], DrawPoint[a+1]);
+	
 	#endif
 }
 //画障碍物曲线，以画框中心为原点，极坐标的方式
@@ -489,6 +525,9 @@ void MainWindow::on_SaveBtn_clicked()
 	line_Qby = ui->PixHight_End->text().toLatin1();
     line_getInt = atoi(line_Qby);
 	st_SysParam.PixHight_End = line_getInt;
+	line_Qby = ui->Edit_instalHeight->text().toLatin1();
+    line_getInt = atoi(line_Qby);
+	st_SysParam.Edit_instalHeight = line_getInt;
 	line_Qby = ui->GussBlurSize->text().toLatin1();
     line_getInt = atoi(line_Qby);
 	st_SysParam.GussBlurSize = line_getInt;
@@ -571,6 +610,8 @@ int MainWindow::SetUIDispParam(CAMMER_PARA_S* pstparam)
 	ui->PixHight_Start->setText(str);
 	str.sprintf("%d",stparam.PixHight_End);
 	ui->PixHight_End->setText(str);
+	str.sprintf("%d",stparam.Edit_instalHeight);
+	ui->Edit_instalHeight->setText(str);
 	str.sprintf("%d",stparam.GussBlurSize);
 	ui->GussBlurSize->setText(str);
 	str.sprintf("%d",stparam.MidBlurSize);
@@ -676,6 +717,7 @@ int GetCammerSysParamFile(CAMMER_PARA_S* pstparam)
 		pstparam->PixWidth_End	 	= pIniFile->value("/CammerParam/PixWidth_End", "0").toInt();
 		pstparam->PixHight_Start 	= pIniFile->value("/CammerParam/PixHight_Start", "0").toInt();
 		pstparam->PixHight_End 		= pIniFile->value("/CammerParam/PixHight_End", "0").toInt();
+		pstparam->Edit_instalHeight = pIniFile->value("/CammerParam/Edit_instalHeight", "0").toInt();
 		pstparam->EditHor_Angl 		= pIniFile->value("/CammerParam/EditHor_Angl", "0").toFloat();
 		pstparam->EditVer_Angl 		= pIniFile->value("/CammerParam/EditVer_Angl", "0").toFloat();
 		//滤波参数
@@ -753,6 +795,7 @@ int SetCammerSetParamFile(CAMMER_PARA_S* pstparam)
 		pIniFile->setValue("/CammerParam/PixWidth_End", pstparam->PixWidth_End);
 		pIniFile->setValue("/CammerParam/PixHight_Start", pstparam->PixHight_Start);
 		pIniFile->setValue("/CammerParam/PixHight_End", pstparam->PixHight_End);
+		pIniFile->setValue("/CammerParam/Edit_instalHeight", pstparam->Edit_instalHeight);
 		pIniFile->setValue("/CammerParam/EditHor_Angl", pstparam->EditHor_Angl);
 		pIniFile->setValue("/CammerParam/EditVer_Angl", pstparam->EditVer_Angl);
 		

@@ -138,6 +138,72 @@ struct CallbackData {
 	TY_CAMERA_DISTORTION color_dist;
 	TY_CAMERA_INTRINSIC color_intri;
 };
+	//立体视角转换为水平上的二维投影
+void f_Trans2D(cv::Mat depth,uint8_t* r_data,cv::Mat* p_2D_gray)
+{
+	int i=0,j=0;
+	int l_size = 5;
+	uint16_t src_depth_data[450*565];
+	uint8_t dst_data[450*565];
+	int dst_line[565];
+	int dis_line[565];
+	//src_depth_data = (uint16_t *)depth.data;
+	
+	memcpy(src_depth_data,depth.data,450*565*2);
+	
+	for(i=0;i<565;i++)
+	{
+		dis_line[i] = 0;
+		for(j=0;j<430;j++)
+		{
+			if(src_depth_data[(j*565) + i] > 5)
+			{
+				dis_line[i] = j;
+			}
+		}
+		//dst_line[i] = (((450-dis_line[i])/450.0)*1430) + 340;
+		dst_line[i] = (int)(tan((((450-dis_line[i])/450.0)*0.817) + 0.35) * 770);
+	}
+	//LOGD("------------src_depth_data center: %d", src_depth_data[(225*565)+280]);
+	//LOGD("------------dstline center: %d", dst_line[280]);
+	int st = 0,ed = 0;
+	for(i=0;i<51;i++)
+	{
+		st = i * 11;
+		//ed = (i+1) * 11;
+		r_data[i] = dst_line[st]/20.0;
+		for(int n=0;n<11;n++)
+		{
+			if((dst_line[st+n]/20.0) < r_data[i])
+			{
+				r_data[i] = dst_line[st+n]/20.0;
+			}
+		}
+		if(r_data[i] >= 88)
+		{
+			r_data[i] = 1;
+		}
+		//r_data[i] = *(std::min_element(dst_line + st,dst_line + ed));
+	}
+	//LOGD("@@@@@@@@@@@@@@@@---------------r_data value: %d", r_data[5]);
+	
+	for(i=0;i<450;i++)
+	{
+		for(j=0;j<565;j++)
+		{
+			if((i < (dis_line[j]+l_size)) && (i > (dis_line[j]-l_size)))
+			{
+				dst_data[i*565 + j] = 250;
+			}
+			else
+			{
+				dst_data[i*565 + j] = 50;
+			}
+		}
+	}
+	*p_2D_gray = cv::Mat(450, 565, CV_8U, dst_data);
+}
+
 bool ImageProcessThread::verifySizes(cv::Rect mr) {
 	// Set a min and max area. All other patchs are discarded
 	int min = 400 * 4;  // minimum area
@@ -189,12 +255,7 @@ void ImageProcessThread::depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat*
 	uint16_t treshhold;
 	CAMMER_PARA_S st_SysParam;
 	GetCammerSysParam(&st_SysParam);
-	if(st_SysParam.Temp_threshold < 0.01 || st_SysParam.Temp_threshold > 10)
-	{
-		st_SysParam.Temp_threshold = 0.03;
-		printf("set Temp_threshold 0.03\n");
-		SetCammerSetParamFile(&st_SysParam);
-	}
+	
 	src_data = (uint16_t *)depth.data;
 	memset(blk_data,0,480*640*2);
 	for(i=0;i<(480*640);i++)
@@ -778,7 +839,19 @@ void ImageProcessThread::run()
 
 	LOGD("=== Configure components");
 	int32_t componentIDs = TY_COMPONENT_POINT3D_CAM | TY_COMPONENT_RGB_CAM;
+    //int32_t componentIDs = TY_COMPONENT_DEPTH_CAM | TY_COMPONENT_IR_CAM_LEFT | TY_COMPONENT_IR_CAM_RIGHT;
 	ASSERT_OK(TYEnableComponents(hDevice, componentIDs));
+	#if 1
+    // set cam_gain and laser_power
+    ASSERT_OK(TYSetInt(hDevice, TY_COMPONENT_IR_CAM_LEFT, TY_INT_GAIN, st_SysParam.Gain_max));  //16/32/64/128/254  3~254
+	ASSERT_OK(TYSetInt(hDevice, TY_COMPONENT_IR_CAM_RIGHT, TY_INT_GAIN, st_SysParam.Gain_max)); //16/32/64/128/254
+	ASSERT_OK(TYSetInt(hDevice, TY_COMPONENT_LASER, TY_INT_LASER_POWER,st_SysParam.Gain_thold_max)); // 1~100
+	
+	//get the histro 
+	ASSERT_OK(TYEnableComponents(hDevice, TY_COMPONENT_BRIGHT_HISTO));
+    int err = TYSetEnum(hDevice, TY_COMPONENT_DEPTH_CAM, TY_ENUM_IMAGE_MODE, TY_IMAGE_MODE_640x480);
+    ASSERT(err == TY_STATUS_OK || err == TY_STATUS_NOT_PERMITTED);
+	#endif
 
 	LOGD("=== Prepare image buffer");
 	int32_t frameSize;
