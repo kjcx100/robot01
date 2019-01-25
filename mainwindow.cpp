@@ -54,6 +54,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     //ui->RawImg->show();
     //ui->OutImg->show();
+    this->setMouseTracking(true);//设置窗体可响应 Mouse Move
 	pVideoImage = new PictureBox(this);
 	if(pVideoImage != NULL)
 	{	        
@@ -219,11 +220,13 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	int carpic_h = 60;
     painter.drawPixmap(start_x + w/2 - carpic_w/2, start_y + h/2 - carpic_h/2, carpic_w, carpic_h, pix);
 	QFont font("宋体", 14, QFont::Bold, true);
+	//https://blog.csdn.net/qq_40194498/article/details/79171149
 	//设置下划线
 	//font.setUnderline(true);
 	//使用字体
 	painter.setFont(font);
 	painter.drawText(start_x + 4, start_y + 24, tr("极坐标图"));
+	painter.drawText(start_x + 4, start_y + 40,tr("(%1, %2)").arg(m_mouse_x).arg(m_mouse_y));
 
 	//###############分割线
 	#if 1
@@ -481,6 +484,14 @@ void MainWindow::keyPressEvent(QKeyEvent *e)
 	default:
 		break;
 	}
+}
+void MainWindow::mousePressEvent(QMouseEvent *e)
+{
+	//ui->pushButton->setText(tr("(%1, %2)").arg(e->x()).arg(e->y()));
+	printf("mouse x==%d,mouse y ==$d\n",e->x(),e->y());
+	m_mouse_x = e->x();
+	m_mouse_y = e->y();
+
 }
 
 void MainWindow::on_SaveBtn_clicked()

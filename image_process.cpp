@@ -33,6 +33,8 @@ int gm_hight = 480;
 
 
 #define CVIMGSHOW   0
+#define USE_RGBIMG   0
+
 
 //另一个线程读取图像
 BTCommunThread::BTCommunThread(QObject *parent) :
@@ -271,12 +273,13 @@ void ImageProcessThread::depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat*
 		}
 		else if((src_data[i] - t_data[i]) < (-1 * treshhold))
 		{
-			//dst_data[i] = 0;
-			dst_data[i] = 1200;
+			dst_data[i] = 0;	//凹下去的也设置为0
+			//dst_data[i] = 1200;
 		}
 		else if((src_data[i] - t_data[i]) > (treshhold * 1.5))
 		{
-			dst_data[i] = 2500;
+			//dst_data[i] = 2500;
+			dst_data[i] = t_data[i];	//保留深度 信息
 		}
 		else
 		{
@@ -331,7 +334,7 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 	int SOBEL_DELTA = 0.5;
 	int SOBEL_DDEPTH = CV_16S;
 	int SOBEL_X_WEIGHT = 1;
-	int MIDBLUR_DRAW_LINE = 3;
+	const int MIDBLUR_DRAW_LINE = 3;
 	CAMMER_PARA_S st_SysParam;
 	GetCammerSysParam(&st_SysParam);
 	//memset(m_PointsLine , 0 ,sizeof(int)*gm_width);
@@ -620,11 +623,18 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		cv::Mat tempDepth = cv::Mat(depth.rows, depth.cols, CV_16U, (uint16_t *)tempdata);
 		Mat mat_blur;
 		//mat_blur = depth.clone();
+		#if 0
 		GaussianBlur(depth, mat_blur, Size(st_SysParam.GussBlurSize, st_SysParam.GussBlurSize), 0, 0, BORDER_DEFAULT);		
 		//lxl modify 12-27	不用rgb直接用深度图，所以不用换算坐标
         //cv::Mat Depth2 = cvMatRect2Tetra(depth, 18, 8, depth.cols - 1 + 7, 8, 46, depth.rows -1 - 7, depth.cols - 1 + 7, depth.rows - 1 - 7, depth.cols, depth.rows);
 		depthTransfer(mat_blur, (uint16_t*)tempdata, &TransDepth, &blackDepth);
+		#else
+		depthTransfer(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth);
+		GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.GussBlurSize, st_SysParam.GussBlurSize), 0, 0, BORDER_DEFAULT);		
+		#endif
+		#if USE_RGBIMG
 		cv::resize(color, resized_color, depth.size());
+		#endif
 		#if CVIMGSHOW
 		cv::imshow("resizedColor", resized_color);
 		#endif
@@ -720,12 +730,14 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
         DeepImgFinds_write_rgb(depthColor,resized_color, 3, 7, 7);
 	}
 	#endif
+	#if USE_RGBIMG
 	if (save_frame){
 		LOGD(">>>>>>>>>> write images");
 		//imwrite("depth.png", newDepth);
 		imwrite("color.png", color);
 		save_frame = false;
 	}
+	#endif
 	if (save_rect_color) {
 		save_rect_color = false;
 		gsave_rect_count++;
@@ -834,12 +846,14 @@ void ImageProcessThread::run()
 	ASSERT_OK(TYGetComponentIDs(hDevice, &allComps));
 	if (!(allComps & TY_COMPONENT_RGB_CAM)){
 		LOGE("=== Has no RGB camera, cant do registration");
+		#if USE_RGBIMG
         return ;
+		#endif
 	}
 
 	LOGD("=== Configure components");
-	int32_t componentIDs = TY_COMPONENT_POINT3D_CAM | TY_COMPONENT_RGB_CAM;
-    //int32_t componentIDs = TY_COMPONENT_DEPTH_CAM | TY_COMPONENT_IR_CAM_LEFT | TY_COMPONENT_IR_CAM_RIGHT;
+	//int32_t componentIDs = TY_COMPONENT_POINT3D_CAM | TY_COMPONENT_RGB_CAM;
+    int32_t componentIDs = TY_COMPONENT_DEPTH_CAM | TY_COMPONENT_IR_CAM_LEFT | TY_COMPONENT_IR_CAM_RIGHT;
 	ASSERT_OK(TYEnableComponents(hDevice, componentIDs));
 	#if 1
     // set cam_gain and laser_power

@@ -6,6 +6,8 @@
 #include <QThread>
 #include <QTimer>
 #include <QKeyEvent>
+#include <QMouseEvent>
+
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -52,8 +54,11 @@ private:
     QTimer *pTimer500ms;
     QTimer *pTimer1S;
 	PictureBox *pVideoImage;        //实时视频
+	int m_mouse_x;
+	int m_mouse_y;
 protected:
 	void paintEvent(QPaintEvent *);
+	void mousePressEvent(QMouseEvent *);
 
 
 };
