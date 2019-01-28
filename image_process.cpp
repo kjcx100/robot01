@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
+#include <QFontDatabase>
+#include <QDebug>
 
 #include "include/image_process.h"
 #include "../common/common.hpp"
@@ -21,6 +23,8 @@ static int gsave_rect_count = 0;
 extern CAMMER_PARA_S g_SysParam;
 extern int main_PointsLine[DEEPIMG_WIDTH];
 extern int g_is_point_OK;
+extern float SINX[90];
+
 
 cv::Mat g_cvimg;
 Mat g_cvdeepimg;
@@ -34,6 +38,7 @@ int gm_hight = 480;
 
 #define CVIMGSHOW   0
 #define USE_RGBIMG   0
+#define DEEP_DISTANSLINE   1
 
 
 //另一个线程读取图像
@@ -255,6 +260,25 @@ void ImageProcessThread::depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat*
 	uint16_t blk_data[480*640];
 	uint16_t* src_data;
 	uint16_t treshhold;
+	int shift_y = 0;
+	int Total_pix = gm_hight*gm_width;
+	uint32_t temp_dmin = 0;
+	uint32_t temp_dmax = 0;
+	float shift_index = 0;
+	for(int j = 0; j < 10 ; j++)
+	{
+		temp_dmax += t_data[480*10+j*6];
+	}
+	temp_dmax = temp_dmax/10;
+	for(int lj = 0; lj < 10 ; lj++)
+	{
+		temp_dmin += t_data[Total_pix - 480*10 - lj*6];
+	}
+	temp_dmin = temp_dmin/10;
+	if((temp_dmax - temp_dmin) > 10)		
+		shift_index = 480/(temp_dmax - temp_dmin);
+	else
+		shift_index = 0.25;
 	CAMMER_PARA_S st_SysParam;
 	GetCammerSysParam(&st_SysParam);
 	
@@ -273,28 +297,103 @@ void ImageProcessThread::depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat*
 		}
 		else if((src_data[i] - t_data[i]) < (-1 * treshhold))
 		{
-			dst_data[i] = 0;	//凹下去的也设置为0
+			//dst_data[i] = 0;	//凹下去的也设置为0
 			//dst_data[i] = 1200;
+			#if 1
+			shift_y = (t_data[i] - src_data[i])*shift_index*SINX[(int)st_SysParam.EditVer_Angl];	//y坐标的偏移量=距离差*sinx
+			if(i + shift_y*gm_width < Total_pix)
+				dst_data[i + shift_y*gm_width] = 2500;
+			else
+				dst_data[Total_pix] = 2500;
+			#endif
 		}
 		else if((src_data[i] - t_data[i]) > (treshhold * 1.5))
 		{
 			//dst_data[i] = 2500;
-			dst_data[i] = t_data[i];	//保留深度 信息
+			//dst_data[i] = t_data[i];	//保留深度 信息
+			shift_y = (src_data[i] - t_data[i])*shift_index*SINX[(int)st_SysParam.EditVer_Angl];	//y坐标的偏移量=距离差*sinx
+			if(i + shift_y*gm_width < Total_pix)
+				dst_data[i + shift_y*gm_width] = 2500;
+			else
+				dst_data[Total_pix] = 2500;
 		}
 		else
 		{
 			dst_data[i] = 0;
 		}
-		/*
-		if(i == (240*640 + 320))
-		{
-			LOGD("--------------------- treshhold:%d, src_data[i]-t_data[i]:%d", treshhold, (src_data[i] - t_data[i]));
-			LOGD("---------------------------------------------- dst_data[]:%d", dst_data[i]);
-		}
-		*/
-		//dst_data[i] = src_data[i] - t_data[i];
+
 	}
 	
+	dst_data[0] = 500;
+	dst_data[1] = 4000;
+	
+	blk_data[0] = 500;
+	blk_data[1] = 4000;
+	
+	*newDepth = cv::Mat(480, 640, CV_16U, dst_data);
+	*blackDepth = cv::Mat(480, 640, CV_16U, blk_data);
+}
+
+void ImageProcessThread::depthTrans_BarrierLine(cv::Mat depth, uint16_t* t_data, cv::Mat* newDepth, cv::Mat* blackDepth)
+{
+	int i=0;
+	uint16_t dst_data[480*640];
+	uint16_t blk_data[480*640];
+	uint16_t* src_data;
+	uint16_t treshhold;
+	uint16_t temp_dist = 0;
+	CAMMER_PARA_S st_SysParam;
+	GetCammerSysParam(&st_SysParam);
+	
+	src_data = (uint16_t *)depth.data;
+	memset(blk_data,0,480*640*2);
+	for(i=0;i<(480*640);i++)
+	{
+		treshhold = (uint16_t)(t_data[i]*st_SysParam.Temp_threshold);
+		if(src_data[i] == 0)
+		{
+			dst_data[i] = 0;
+			if(i > (100*640))
+			{
+				blk_data[i] = 500;
+			}
+		}
+		else if((src_data[i] - t_data[i]) < (-1 * treshhold))
+		{
+			//dst_data[i] = 0;	//凹下去的也设置为0
+			//dst_data[i] = 1200;
+			dst_data[i] = src_data[i];
+		}
+		else if((src_data[i] - t_data[i]) > (treshhold * 1.5))
+		{
+			//dst_data[i] = 2500;
+			dst_data[i] = src_data[i];	//保留深度 信息
+		}
+		else
+		{
+			dst_data[i] = 0;
+		}
+
+	}
+	for (int j = 0; j < DEEPIMG_WIDTH; j++)
+	{
+		m_DistansLine[j] = 10000;
+		int Has_distrans = 0;	//一列中有凸起的点
+		for(int ii=0;ii<DEEPIMG_HEIGHT;ii++)
+		{
+			if(dst_data[j + ii*DEEPIMG_WIDTH] != 0)	//凸起的点
+			{
+				Has_distrans = 1;
+				if(dst_data[j + ii*DEEPIMG_WIDTH] < m_DistansLine[j])
+				{
+					m_DistansLine[j] = dst_data[j + ii*DEEPIMG_WIDTH];
+				}
+			}
+		}
+		if(0 == Has_distrans)
+			m_DistansLine[j] = 0;
+		//printf("m_DistansLine[%d]==%d\n",j,m_DistansLine[j]);
+	}
 	dst_data[0] = 500;
 	dst_data[1] = 4000;
 	
@@ -519,6 +618,7 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 		++itc;
 		++Count_contours;
 	}
+	#if 0
 	for (int j = 0; j < DEEPIMG_WIDTH; j++)
 	{
 		//找出第一个有效的点
@@ -542,6 +642,7 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 			}
 		}
 	}
+	#endif
 	for (int j = 0; j < DEEPIMG_WIDTH; j++)
 	{
 		//绘制出m_PointsLine向量内所有的像素点
@@ -629,20 +730,21 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
         //cv::Mat Depth2 = cvMatRect2Tetra(depth, 18, 8, depth.cols - 1 + 7, 8, 46, depth.rows -1 - 7, depth.cols - 1 + 7, depth.rows - 1 - 7, depth.cols, depth.rows);
 		depthTransfer(mat_blur, (uint16_t*)tempdata, &TransDepth, &blackDepth);
 		#else
-		depthTransfer(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth);
+		//depthTransfer(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth);
+		depthTrans_BarrierLine(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth);
 		GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.GussBlurSize, st_SysParam.GussBlurSize), 0, 0, BORDER_DEFAULT);		
 		#endif
 		#if USE_RGBIMG
-		cv::resize(color, resized_color, depth.size());
+			cv::resize(color, resized_color, depth.size());
+			#if CVIMGSHOW
+			cv::imshow("resizedColor", resized_color);
+			#endif
+			if (save_frame){
+				LOGD(">>>>>>>>>> write resized_color");
+				imwrite("resized_color.png", resized_color);
+				//save_frame = false;
+			}
 		#endif
-		#if CVIMGSHOW
-		cv::imshow("resizedColor", resized_color);
-		#endif
-		if (save_frame){
-			LOGD(">>>>>>>>>> write resized_color");
-			imwrite("resized_color.png", resized_color);
-			//save_frame = false;
-		}
 		//lxl add output grayimg
 		pData->render->SetColorType(DepthRender::COLORTYPE_BLUERED);//(DepthRender::COLORTYPE_GRAY);
 		cv::Mat depthColor = pData->render->Compute(TransDepth);
@@ -650,6 +752,27 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		cv::Mat RawdepthColor = pData->render->Compute(depth);
 		g_cvdeepimg = RawdepthColor.clone();
 		emit EmitFrameMessage(&g_cvdeepimg,0);
+		#if DEEP_DISTANSLINE	
+		for (int j = 0; j < DEEPIMG_WIDTH; j++)
+		{
+			//绘制出m_PointsLine向量内所有的像素点
+			m_DistansLine[j] = DEEPIMG_HEIGHT - m_DistansLine[j]/4;
+			Point P = Point(j, m_DistansLine[j]);
+			//输出到rgb
+			if(j > 3 && (j < (DEEPIMG_WIDTH - 3)))
+			{
+				if(abs(m_DistansLine[j+1] - m_DistansLine[j]) > 10 
+					&& abs(m_DistansLine[j+1] - m_DistansLine[j]) < DEEPIMG_HEIGHT/3
+					&& m_DistansLine[j] < DEEPIMG_HEIGHT - 100)	//点距相差过大，画线
+				{
+					Point P2 = Point(j+1, m_DistansLine[j+1]);
+					line(depthColor,P,P2,Scalar(0, 128, 128),2);
+				}else
+					circle(depthColor, P, 0, Scalar(0, 128, 128),2);
+			}else
+				circle(depthColor, P, 0, Scalar(0, 128, 128),2);
+		}
+		#endif
 		//printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);
 		g_cvRawTempimg = depthColor.clone();
 		emit EmitRawTempMessage(&g_cvRawTempimg,0);
@@ -670,9 +793,12 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 			//save_frame = false;
 		}
 		//DeepImgFinds_write_rgb(depthColor,resized_color, 3, 7, 7);
+		#if DEEP_DISTANSLINE
+		#else
 		//lxl add at 12-25 使用系统参数
 		DeepImgFinds_write_rgb(depthColor,resized_color, st_SysParam.MidBlurSize,
 								st_SysParam.MorphCloseSize, st_SysParam.MorphCloseSize);
+		#endif
 	}
 	// do Registration
 	#else
@@ -784,6 +910,16 @@ void ImageProcessThread::run()
 	char * tempImgBuf = (char *)malloc(BUFF_SIZE);
 	g_tmpbuffer = (char *)malloc(BUFF_SIZE);
     qDebug("ImageProcessThread::run=%d\n",__LINE__);
+	{
+	    QFontDatabase database;
+		QString family;
+	    foreach(const QString &family, database.families(QFontDatabase::SimplifiedChinese))
+	    {
+	        qDebug() << family;
+	    }
+	}
+//以上这段代码就可以枚举出系统中所有支持中文的字体名称。
+
 	FILE *filetmp;
     //const char* tempimg = "/home/apple/qt_prj/build-robot01-Desktop_Qt_5_10_1_GCC_64bit-Debug/template.yuv";
     const char* tempimg = "./template.yuv";
@@ -949,7 +1085,7 @@ void ImageProcessThread::run()
 			memcpy(tempImgBuf, g_tmpbuffer, BUFF_SIZE);
 			g_IsTemp_btn  = 0;
 		}
-		if(m_PointsLine[0] != 0)
+		if(1)//(m_PointsLine[0] != 0)	//modify at 2019-1-26
 		{
 			memcpy(main_PointsLine, m_PointsLine, sizeof(int)*DEEPIMG_WIDTH);
 			g_is_point_OK = 1;

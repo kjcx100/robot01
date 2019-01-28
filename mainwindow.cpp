@@ -7,6 +7,8 @@
 #include <QtDebug>
 #include <QString>
 #include <QPainter>
+#include <qmath.h>
+
 
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
@@ -54,7 +56,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     //ui->RawImg->show();
     //ui->OutImg->show();
-    this->setMouseTracking(true);//设置窗体可响应 Mouse Move
+    //this->setMouseTracking(true);//设置窗体可响应 Mouse Move
 	pVideoImage = new PictureBox(this);
 	if(pVideoImage != NULL)
 	{	        
@@ -188,12 +190,14 @@ void MainWindow::call_timerDone_1s()
 void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 {
 	
-	//printf("drawRectInPos:: line=%d\n",__LINE__);
+	//printf("drawRectInPos:: line=%d,m_mouse_x==%d\n",__LINE__,m_mouse_x);
     QPainter painter(this);
     //创建画笔
     QPen pen(Qt::green, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
 	CAMMER_PARA_S st_SysParam;
 	GetCammerSysParam(&st_SysParam);
+	int MIDRECT_DRAW_LINE = 3;
+	
 	    // 创建画刷
     //QBrush brush(QColor(0, 0, 0), Qt::SolidPattern);
     // 使用画刷
@@ -219,14 +223,14 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	int carpic_w = 40;
 	int carpic_h = 60;
     painter.drawPixmap(start_x + w/2 - carpic_w/2, start_y + h/2 - carpic_h/2, carpic_w, carpic_h, pix);
-	QFont font("宋体", 14, QFont::Bold, true);
+	QFont font("Noto Sans CJK JP", 14, QFont::Bold, true);
 	//https://blog.csdn.net/qq_40194498/article/details/79171149
 	//设置下划线
 	//font.setUnderline(true);
 	//使用字体
 	painter.setFont(font);
 	painter.drawText(start_x + 4, start_y + 24, tr("极坐标图"));
-	painter.drawText(start_x + 4, start_y + 40,tr("(%1, %2)").arg(m_mouse_x).arg(m_mouse_y));
+	//painter.drawText(start_x + 4, start_y + 40,tr("(%1, %2)").arg(m_mouse_x).arg(m_mouse_y));
 
 	//###############分割线
 	#if 1
@@ -243,10 +247,24 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	for(int a = 0;a < qPNum; a++)
 	{
 		PointsLine[a] = main_PointsLine[39 + a*10];
-		//DisPointsLine[a] = PointsLine[a]/(TANX[(int)st_SysParam.EditVer_Angl]);
-		//DisPointsLine[a] > h ? h : DisPointsLine[a];
+	}
+	#if 1
+	for (int lj = 0; lj < qPNum; lj++)
+	{
+		//输出到rgb
+		if(lj >= MIDRECT_DRAW_LINE)
+		{
+			if(0 == PointsLine[lj] && PointsLine[lj-1] != 0)	//点无变化
+			{
+				PointsLine[lj] = 10;//PointsLine[lj-1];
+			}
+		}
+	}
+	#endif
+	for(int a = 0;a < qPNum; a++)
+	{
 		DisLine[a] = st_SysParam.Edit_instalHeight*TANX[(int)((DEEPIMG_HEIGHT - PointsLine[a])/10 + st_SysParam.EditVer_Angl-23)];
-		DisLine[a] > h ? h : DisLine[a];
+		DisLine[a] > h/2 ? h/2 : DisLine[a];
 	}
 	for(int a = 0;a <= halfqPNum; a++)
 	{
@@ -487,13 +505,15 @@ void MainWindow::keyPressEvent(QKeyEvent *e)
 }
 void MainWindow::mousePressEvent(QMouseEvent *e)
 {
-	//ui->pushButton->setText(tr("(%1, %2)").arg(e->x()).arg(e->y()));
-	printf("mouse x==%d,mouse y ==$d\n",e->x(),e->y());
+	int dis_x = ui->RawImg->x()+560+ui->RawImg->width()/2 - e->x();
+	int dis_y = ui->RawImg->y() + ui->RawImg->height()+ui->RawImg->height()/2  + 40 - e->y();
+	int dist = qSqrt(dis_x*dis_x+dis_y*dis_y);
+	ui->Disp_Mouse->setText(tr("(%1)").arg(dist));
+	printf("mouse x==%d,mouse y ==%d\n",e->x(),e->y());
 	m_mouse_x = e->x();
 	m_mouse_y = e->y();
 
 }
-
 void MainWindow::on_SaveBtn_clicked()
 {
 	printf("###[%s][%d], in!!!\n", __func__, __LINE__);
