@@ -33,6 +33,8 @@ extern volatile bool save_rect_color;
 QImage		   g_VideoImage;
 QImage		   g_VideoImageOut;
 int main_PointsLine[DEEPIMG_WIDTH];
+int main_DistPointsLine[DEEPIMG_DRAWPOINT];
+
 int g_is_point_OK = 0;
 float SINX[90] = {0.0175,0.0349,0.0523,0.0698,0.0872,0.1045,0.1287,0.1392,0.1564,0.1737,0.1908,0.2079,0.2250,0.2419,0.2589,
 				0.2756,0.2924,0.3090,0.3256,0.3420,0.3584,0.3746,0.3907,0.4067,0.4226,0.4384,0.4540,0.4695,0.4848,0.5000,
@@ -197,6 +199,7 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	CAMMER_PARA_S st_SysParam;
 	GetCammerSysParam(&st_SysParam);
 	int MIDRECT_DRAW_LINE = 3;
+	const int Min_paintLen = 80;
 	
 	    // 创建画刷
     //QBrush brush(QColor(0, 0, 0), Qt::SolidPattern);
@@ -236,7 +239,7 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	#if 1
 	//重新设置画笔
     pen.setWidth(2);
-    pen.setColor(Qt::red);
+    pen.setColor(Qt::yellow);
     painter.setPen(pen);
 	int qPNum = 60;
 	int halfqPNum = 30;
@@ -244,10 +247,17 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	int PointsLine[qPNum];
 	int DisPointsLine[qPNum];	//由point转换为距离 dispoint = PointsLine/tan(x)
 	int DisLine[qPNum];
+	#if DEEP_DISTANSLINE
+	for(int a = 0;a < qPNum; a++)
+	{
+		PointsLine[a] = main_DistPointsLine[a];
+	}
+	#else
 	for(int a = 0;a < qPNum; a++)
 	{
 		PointsLine[a] = main_PointsLine[39 + a*10];
 	}
+	#endif
 	#if 1
 	for (int lj = 0; lj < qPNum; lj++)
 	{
@@ -264,8 +274,9 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	for(int a = 0;a < qPNum; a++)
 	{
 		DisLine[a] = st_SysParam.Edit_instalHeight*TANX[(int)((DEEPIMG_HEIGHT - PointsLine[a])/10 + st_SysParam.EditVer_Angl-23)];
-		DisLine[a] > h/2 ? h/2 : DisLine[a];
-	}
+		//if(DisLine[a] > 200)
+		//	DisLine[a] = 200;
+	} 
 	for(int a = 0;a <= halfqPNum; a++)
 	{
 		DrawPoint[a].setX(start_x + w/2 - (DEEPIMG_HEIGHT - PointsLine[a])/2*SINX[90-60-a]);
@@ -289,9 +300,9 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	DrawPoint[30].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[30])/2);
 	for(int a = 0;a < qPNum -1; a++)
 	{
-		//if(abs(DrawPoint[a].y() - DrawPoint[a+1].y()) > 10 )	//点距相差过大，
-		//	DrawPoint[a+1].setY(DrawPoint[a].y());
-		painter.drawLine(DrawPoint[a], DrawPoint[a+1]);
+		if(PointsLine[a] > Min_paintLen && PointsLine[a+1] > Min_paintLen)
+			painter.drawLine(DrawPoint[a], DrawPoint[a+1]);
+			//painter.drawPoint(DrawPoint[a]);
 		//QPoint qPLine;
 		//qPLine.setX(start_x + w/2 +a);
 		//qPLine.setY(start_y + h/2 - PointsLine[a]);
@@ -300,8 +311,22 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	////画角度变换后的线//////////
 	//重新设置画笔
     pen.setWidth(2);
-    pen.setColor(Qt::yellow);
+    pen.setColor(Qt::red);
     painter.setPen(pen);
+	#if DEEP_DISTANSLINE
+	for(int a = 0;a <= halfqPNum; a++)
+	{
+		DrawPoint[a].setX(start_x + w/2 - (DisLine[a])*SINX[90-60-a]);
+		DrawPoint[a].setY(start_y + h/2 - (DisLine[a])*SINX[60+a]);
+	}
+	for(int a = 30;a <= qPNum; a++)
+	{
+		DrawPoint[a].setX(start_x + w/2 + (DisLine[a])*SINX[a - 30]);
+		DrawPoint[a].setY(start_y + h/2 - (DisLine[a])*SINX[120 - a]);
+	}
+	DrawPoint[30].setX(start_x + w/2);
+	DrawPoint[30].setY(start_y + h/2 - (DisLine[30]));
+	#else
 	for(int a = 0;a <= halfqPNum; a++)
 	{
 		DrawPoint[a].setX(start_x + w/2 - (DisLine[a])*2*SINX[90-60-a]);
@@ -315,8 +340,13 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	}
 	DrawPoint[30].setX(start_x + w/2);
 	DrawPoint[30].setY(start_y + h/2 - (DisLine[30])*2);
+	#endif
 	for(int a = 0;a < qPNum -1; a++)
-		painter.drawLine(DrawPoint[a], DrawPoint[a+1]);
+	{
+		if(PointsLine[a] > Min_paintLen && PointsLine[a+1] > Min_paintLen)
+			painter.drawLine(DrawPoint[a], DrawPoint[a+1]);
+			//painter.drawPoint(DrawPoint[a]);
+	}
 	
 	#endif
 }
@@ -607,6 +637,7 @@ void MainWindow::on_Comb_Cam_currentIndexChanged(int index)
 {
 	printf("###[%s][%d], in!!!,index==%d\n", __func__, __LINE__,index);
 	m_ImageProcessThread.stop();
+	//m_ImageProcessThread.requestInterruption();
 	on_SaveBtn_clicked();
 	
 }

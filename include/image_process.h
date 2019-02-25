@@ -35,6 +35,7 @@ class ImageProcessThread : public QThread
 public:
     bool bStop ;
     explicit ImageProcessThread(QObject *parent = 0);
+	~ImageProcessThread();
     void run();
     void stop();	
 	void handleFrame(TY_FRAME_DATA* frame, void* userdata ,void* tempdata);
@@ -44,6 +45,7 @@ public:
 	bool calcSafeRect(const cv::RotatedRect &roi_rect, const cv::Mat &src,cv::Rect_<float> &safeBoundRect);
 	void depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat* newDepth, cv::Mat* blackDepth);
 	void depthTrans_BarrierLine(cv::Mat depth, uint16_t* t_data, cv::Mat* newDepth, cv::Mat* blackDepth);	
+	void depthTrans_FindLine(cv::Mat Transdepth);
 	cv::Mat cvMatRect2Tetra(cv::Mat mtxSrc, int iDstX1, int iDstY1, int iDstX2, int iDstY2,
 						int iDstX3, int iDstY3, int iDstX4, int iDstY4, int iDstWidth, int iDstHeight);
 signals: 
@@ -54,6 +56,7 @@ signals:
 private:
 	int m_PointsLine[DEEPIMG_WIDTH];	//存储障碍物曲线的points
 	uint16_t m_DistansLine[DEEPIMG_WIDTH];	//存储障碍物曲线的深度信息
+	uint16_t m_DrawDistLine[DEEPIMG_DRAWPOINT];		//滤波处理后的60个点
 
 };
 #endif // IMAGE_PROCESS_H
