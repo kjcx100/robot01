@@ -6,6 +6,7 @@
 #define		DEEPIMG_HEIGHT	480
 #define		DEEPIMG_DRAWPOINT	60
 #define 	DEEP_DISTANSLINE   1
+#define 	MAX_DEVNUM	5
 
 
 typedef struct _CAMMER_PARA_S			// size = 64

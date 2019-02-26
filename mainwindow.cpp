@@ -32,8 +32,8 @@ extern volatile bool save_rect_color;
 
 QImage		   g_VideoImage;
 QImage		   g_VideoImageOut;
-int main_PointsLine[DEEPIMG_WIDTH];
-int main_DistPointsLine[DEEPIMG_DRAWPOINT];
+int main_PointsLine[MAX_DEVNUM][DEEPIMG_WIDTH];
+int main_DistPointsLine[MAX_DEVNUM][DEEPIMG_DRAWPOINT];
 
 int g_is_point_OK = 0;
 float SINX[90] = {0.0175,0.0349,0.0523,0.0698,0.0872,0.1045,0.1287,0.1392,0.1564,0.1737,0.1908,0.2079,0.2250,0.2419,0.2589,
@@ -79,17 +79,20 @@ MainWindow::MainWindow(QWidget *parent) :
         connect( pTimer1S, SIGNAL(timeout()), this, SLOT(call_timerDone_1s()) );
         pTimer1S->start(1000);              // 1秒单触发定时器
     }
-    m_ImageProcessThread.start();
-	qDebug("m_ImageProcessThread start!!!%d\n",__LINE__);
+
 	connect(&m_ImageProcessThread, SIGNAL(EmitFrameMessage(cv::Mat*, int)), this, SLOT(EmitFrameMessage(cv::Mat*, int)));
 	connect(&m_ImageProcessThread, SIGNAL(EmitOutFrameMessage(cv::Mat*, int)), this, SLOT(EmitOutFrameMessage(cv::Mat*, int)));
 	connect(&m_ImageProcessThread, SIGNAL(EmitRawTempMessage(cv::Mat*, int)), this, SLOT(EmitRawTempMessage(cv::Mat*, int)));
-
-	for(int i=0; i < gm_width ; i++)
+	for(int devi = 0; devi < MAX_DEVNUM; devi++)
 	{
-		main_PointsLine[i] = 0 ;
+		for(int i=0; i < gm_width ; i++)
+		{
+			main_PointsLine[devi][i] = 0 ;
+			main_DistPointsLine[devi][i] = 0 ;
+		}
 	}
-}
+    m_ImageProcessThread.start();
+	qDebug("m_ImageProcessThread start!!!%d\n",__LINE__);}
 void MainWindow::paintEvent(QPaintEvent *)
 {
 	//绘制结果显示背景	26+420+420	-->>40+420+420
@@ -226,7 +229,7 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	int carpic_w = 40;
 	int carpic_h = 60;
     painter.drawPixmap(start_x + w/2 - carpic_w/2, start_y + h/2 - carpic_h/2, carpic_w, carpic_h, pix);
-	QFont font("Noto Sans CJK JP", 14, QFont::Bold, true);
+	QFont font("AR PL UKai CN", 14, QFont::Bold, true);
 	//https://blog.csdn.net/qq_40194498/article/details/79171149
 	//设置下划线
 	//font.setUnderline(true);
@@ -236,124 +239,178 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	//painter.drawText(start_x + 4, start_y + 40,tr("(%1, %2)").arg(m_mouse_x).arg(m_mouse_y));
 
 	//###############分割线
-	#if 1
 	//重新设置画笔
     pen.setWidth(2);
     pen.setColor(Qt::yellow);
     painter.setPen(pen);
 	int qPNum = 60;
 	int halfqPNum = 30;
-	QPoint DrawPoint[qPNum];
-	int PointsLine[qPNum];
-	int DisPointsLine[qPNum];	//由point转换为距离 dispoint = PointsLine/tan(x)
-	int DisLine[qPNum];
-	#if DEEP_DISTANSLINE
-	for(int a = 0;a < qPNum; a++)
+	QPoint DrawPoint[MAX_DEVNUM][qPNum];
+	int PointsLine[MAX_DEVNUM][qPNum];
+	int DisPointsLine[MAX_DEVNUM][qPNum];	//由point转换为距离 dispoint = PointsLine/tan(x)
+	int DisLine[MAX_DEVNUM][qPNum];
+	for(int device = 0; device <= MAX_DEVNUM ;device++)
 	{
-		PointsLine[a] = main_DistPointsLine[a];
-	}
-	#else
-	for(int a = 0;a < qPNum; a++)
-	{
-		PointsLine[a] = main_PointsLine[39 + a*10];
-	}
-	#endif
-	#if 1
-	for (int lj = 0; lj < qPNum; lj++)
-	{
-		//输出到rgb
-		if(lj >= MIDRECT_DRAW_LINE)
+		#if DEEP_DISTANSLINE
+		for(int a = 0;a < qPNum; a++)
 		{
-			if(0 == PointsLine[lj] && PointsLine[lj-1] != 0)	//点无变化
+			PointsLine[device][a] = main_DistPointsLine[device][a];
+		}
+		#else
+		for(int a = 0;a < qPNum; a++)
+		{
+			PointsLine[device][a] = main_PointsLine[device][39 + a*10];
+		}
+		#endif
+		for (int lj = 0; lj < qPNum; lj++)
+		{
+			//输出到rgb
+			if(lj >= MIDRECT_DRAW_LINE)
 			{
-				PointsLine[lj] = 10;//PointsLine[lj-1];
+				if(0 == PointsLine[device][lj] && PointsLine[device][lj-1] != 0)	//点无变化
+				{
+					PointsLine[device][lj] = 10;//PointsLine[lj-1];
+				}
 			}
 		}
-	}
-	#endif
-	for(int a = 0;a < qPNum; a++)
-	{
-		DisLine[a] = st_SysParam.Edit_instalHeight*TANX[(int)((DEEPIMG_HEIGHT - PointsLine[a])/10 + st_SysParam.EditVer_Angl-23)];
-		//if(DisLine[a] > 200)
-		//	DisLine[a] = 200;
-	} 
-	for(int a = 0;a <= halfqPNum; a++)
-	{
-		DrawPoint[a].setX(start_x + w/2 - (DEEPIMG_HEIGHT - PointsLine[a])/2*SINX[90-60-a]);
-		DrawPoint[a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[a])/2*SINX[60+a]);
-		//DrawPoint[a].setX(start_x + w/2 - (DEEPIMG_HEIGHT)/4*SINX[90-60-a]);
-		//DrawPoint[a].setY(start_y + h/2 - (DEEPIMG_HEIGHT)/4*SINX[60+a]);
-		//painter.drawPoint(DrawPoint[a]);
-		//for test
-		//painter.drawPoint(QPoint(start_x + w/2 +100,start_y + h/2 + a+100));
-		//for test end
-	}
-	for(int a = 30;a <= qPNum; a++)
-	{
-		DrawPoint[a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[a])/2*SINX[a - 30]);
-		DrawPoint[a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[a])/2*SINX[120 - a]);
-		//DrawPoint[a].setX(start_x + w/2 + (DEEPIMG_HEIGHT)/4*SINX[a - 30]);
-		//DrawPoint[a].setY(start_y + h/2 - (DEEPIMG_HEIGHT)/4*SINX[120 - a]);
-		//painter.drawPoint(DrawPoint[a]);
-	}
-	DrawPoint[30].setX(start_x + w/2);
-	DrawPoint[30].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[30])/2);
-	for(int a = 0;a < qPNum -1; a++)
-	{
-		if(PointsLine[a] > Min_paintLen && PointsLine[a+1] > Min_paintLen)
-			painter.drawLine(DrawPoint[a], DrawPoint[a+1]);
-			//painter.drawPoint(DrawPoint[a]);
-		//QPoint qPLine;
-		//qPLine.setX(start_x + w/2 +a);
-		//qPLine.setY(start_y + h/2 - PointsLine[a]);
-		//painter.drawPoint(qPLine);
+		for(int a = 0;a < qPNum; a++)
+		{
+			DisLine[device][a] = st_SysParam.Edit_instalHeight*TANX[(int)((DEEPIMG_HEIGHT - PointsLine[device][a])/10 + st_SysParam.EditVer_Angl-23)];
+			//if(DisLine[a] > 200)
+			//	DisLine[a] = 200;
+		}
+		if(0 == device)
+		{
+			for(int a = 0;a <= halfqPNum; a++)
+			{
+				DrawPoint[device][a].setX(start_x + w/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[90-60-a]);
+				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[60+a]);
+				//DrawPoint[a].setX(start_x + w/2 - (DEEPIMG_HEIGHT)/4*SINX[90-60-a]);
+				//DrawPoint[a].setY(start_y + h/2 - (DEEPIMG_HEIGHT)/4*SINX[60+a]);
+				//painter.drawPoint(DrawPoint[a]);
+				//for test
+				//painter.drawPoint(QPoint(start_x + w/2 +100,start_y + h/2 + a+100));
+				//for test end
+			}
+			for(int a = 30;a <= qPNum; a++)
+			{
+				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[a - 30]);
+				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[120 - a]);
+				//DrawPoint[a].setX(start_x + w/2 + (DEEPIMG_HEIGHT)/4*SINX[a - 30]);
+				//DrawPoint[a].setY(start_y + h/2 - (DEEPIMG_HEIGHT)/4*SINX[120 - a]);
+				//painter.drawPoint(DrawPoint[a]);
+			}
+			DrawPoint[device][30].setX(start_x + w/2);
+			DrawPoint[device][30].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][30])/2);
+		}
+		else if(1 == device)
+		{
+			for(int a = 0;a <= halfqPNum; a++)
+			{
+				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[60+a]);
+				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[30-a]);
+			}
+			for(int a = 30;a <= qPNum; a++)
+			{
+				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[120 - a]);
+				DrawPoint[device][a].setY(start_y + h/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[a - 30]);
+			}
+			DrawPoint[device][30].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][30])/2);
+			DrawPoint[device][30].setY(start_y + h/2);
+		}
+		else if(2 == device)
+		{
+			for(int a = 0;a <= halfqPNum; a++)
+			{
+				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[90-60-a]);
+				DrawPoint[device][a].setY(start_y + h/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[60+a]);
+			}
+			for(int a = 30;a <= qPNum; a++)
+			{
+				DrawPoint[device][a].setX(start_x + w/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[a - 30]);
+				DrawPoint[device][a].setY(start_y + h/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[120 - a]);
+			}
+			DrawPoint[device][30].setX(start_x + w/2);
+			DrawPoint[device][30].setY(start_y + h/2 + (DEEPIMG_HEIGHT - PointsLine[device][30])/2);
+		}
+		else if(3 == device)
+		{
+			for(int a = 0;a <= halfqPNum; a++)
+			{
+				DrawPoint[device][a].setX(start_x + w/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[60+a]);
+				DrawPoint[device][a].setY(start_y + h/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[30-a]);
+			}
+			for(int a = 30;a <= qPNum; a++)
+			{
+				DrawPoint[device][a].setX(start_x + w/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[120 - a]);
+				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[a - 30]);
+			}
+			DrawPoint[device][30].setX(start_x + w/2 - (DEEPIMG_HEIGHT - PointsLine[device][30])/2);
+			DrawPoint[device][30].setY(start_y + h/2);
+		}
+
+		for(int a = 0;a < qPNum -1; a++)
+		{
+			if(PointsLine[device][a] > Min_paintLen && PointsLine[device][a+1] > Min_paintLen)
+				painter.drawLine(DrawPoint[device][a], DrawPoint[device][a+1]);
+				//painter.drawPoint(DrawPoint[a]);
+			//QPoint qPLine;
+			//qPLine.setX(start_x + w/2 +a);
+			//qPLine.setY(start_y + h/2 - PointsLine[a]);
+			//painter.drawPoint(qPLine);
+		}
 	}
 	////画角度变换后的线//////////
 	//重新设置画笔
     pen.setWidth(2);
     pen.setColor(Qt::red);
     painter.setPen(pen);
-	#if DEEP_DISTANSLINE
-	for(int a = 0;a <= halfqPNum; a++)
+	for(int device = 0; device <= MAX_DEVNUM ;device++)
 	{
-		DrawPoint[a].setX(start_x + w/2 - (DisLine[a])*SINX[90-60-a]);
-		DrawPoint[a].setY(start_y + h/2 - (DisLine[a])*SINX[60+a]);
+		if(0 == device)
+		{
+			#if DEEP_DISTANSLINE
+			for(int a = 0;a <= halfqPNum; a++)
+			{
+				DrawPoint[device][a].setX(start_x + w/2 - (DisLine[device][a])*SINX[90-60-a]);
+				DrawPoint[device][a].setY(start_y + h/2 - (DisLine[device][a])*SINX[60+a]);
+			}
+			for(int a = 30;a <= qPNum; a++)
+			{
+				DrawPoint[device][a].setX(start_x + w/2 + (DisLine[device][a])*SINX[a - 30]);
+				DrawPoint[device][a].setY(start_y + h/2 - (DisLine[device][a])*SINX[120 - a]);
+			}
+			DrawPoint[device][30].setX(start_x + w/2);
+			DrawPoint[device][30].setY(start_y + h/2 - (DisLine[device][30]));
+			#else
+			for(int a = 0;a <= halfqPNum; a++)
+			{
+				DrawPoint[device][a].setX(start_x + w/2 - (DisLine[device][a])*2*SINX[90-60-a]);
+				DrawPoint[device][a].setY(start_y + h/2 - (DisLine[device][a])*2*SINX[60+a]);
+			}
+			for(int a = 30;a <= qPNum; a++)
+			{
+				//DrawPoint[a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - DisLine[a])/2*SINX[a - 30]);
+				DrawPoint[device][a].setX(start_x + w/2 + (DisLine[device][a])*2*SINX[a - 30]);
+				DrawPoint[device][a].setY(start_y + h/2 - (DisLine[device][a])*2*SINX[120 - a]);
+			}
+			DrawPoint[device][30].setX(start_x + w/2);
+			DrawPoint[device][30].setY(start_y + h/2 - (DisLine[device][30])*2);
+			#endif
+		}
+		for(int a = 0;a < qPNum -1; a++)
+		{
+			if(PointsLine[device][a] > Min_paintLen && PointsLine[device][a+1] > Min_paintLen)
+				painter.drawLine(DrawPoint[device][a], DrawPoint[device][a+1]);
+				//painter.drawPoint(DrawPoint[a]);
+		}
 	}
-	for(int a = 30;a <= qPNum; a++)
-	{
-		DrawPoint[a].setX(start_x + w/2 + (DisLine[a])*SINX[a - 30]);
-		DrawPoint[a].setY(start_y + h/2 - (DisLine[a])*SINX[120 - a]);
-	}
-	DrawPoint[30].setX(start_x + w/2);
-	DrawPoint[30].setY(start_y + h/2 - (DisLine[30]));
-	#else
-	for(int a = 0;a <= halfqPNum; a++)
-	{
-		DrawPoint[a].setX(start_x + w/2 - (DisLine[a])*2*SINX[90-60-a]);
-		DrawPoint[a].setY(start_y + h/2 - (DisLine[a])*2*SINX[60+a]);
-	}
-	for(int a = 30;a <= qPNum; a++)
-	{
-		//DrawPoint[a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - DisLine[a])/2*SINX[a - 30]);
-		DrawPoint[a].setX(start_x + w/2 + (DisLine[a])*2*SINX[a - 30]);
-		DrawPoint[a].setY(start_y + h/2 - (DisLine[a])*2*SINX[120 - a]);
-	}
-	DrawPoint[30].setX(start_x + w/2);
-	DrawPoint[30].setY(start_y + h/2 - (DisLine[30])*2);
-	#endif
-	for(int a = 0;a < qPNum -1; a++)
-	{
-		if(PointsLine[a] > Min_paintLen && PointsLine[a+1] > Min_paintLen)
-			painter.drawLine(DrawPoint[a], DrawPoint[a+1]);
-			//painter.drawPoint(DrawPoint[a]);
-	}
-	
-	#endif
 }
 //画障碍物曲线，以画框中心为原点，极坐标的方式
 void MainWindow::drawBarrierLine(int start_x,int start_y,int w,int h)
 {
 	//printf("drawBarrierLine:: line=%d\n",__LINE__);
+	#if 0
 	QPainter painter(this);
     //创建画笔
     QPen pen(Qt::red, 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
@@ -378,7 +435,7 @@ void MainWindow::drawBarrierLine(int start_x,int start_y,int w,int h)
 		DrawPoint[a].setY(start_y + h/2 + (DEEPIMG_HEIGHT - PointsLine[a])*(1-SINX[a-30]) );
 		painter.drawPoint(DrawPoint[a]);
 	}
-	
+	#endif
 }
 
 void MainWindow::SetImageData(uchar* data,int imgcols,int imgrows)
@@ -636,7 +693,7 @@ void MainWindow::on_SaveBtn_clicked()
 void MainWindow::on_Comb_Cam_currentIndexChanged(int index)
 {
 	printf("###[%s][%d], in!!!,index==%d\n", __func__, __LINE__,index);
-	m_ImageProcessThread.stop();
+	//m_ImageProcessThread.stop();	//5个一起工作，不停止线程
 	//m_ImageProcessThread.requestInterruption();
 	on_SaveBtn_clicked();
 	

@@ -23,8 +23,8 @@ volatile bool save_frame;
 volatile bool save_rect_color;
 static int gsave_rect_count = 0;
 extern CAMMER_PARA_S g_SysParam;
-extern int main_PointsLine[DEEPIMG_WIDTH];
-extern int main_DistPointsLine[DEEPIMG_DRAWPOINT];
+extern int main_PointsLine[MAX_DEVNUM][DEEPIMG_WIDTH];
+extern int main_DistPointsLine[MAX_DEVNUM][DEEPIMG_DRAWPOINT];
 
 extern int g_is_point_OK;
 extern float SINX[90];
@@ -42,6 +42,7 @@ int gm_hight = 480;
 
 #define CVIMGSHOW   0
 #define USE_RGBIMG   0
+#define	MUTEX_DEVICE	1
 
 
 //另一个线程读取图像
@@ -420,7 +421,7 @@ void ImageProcessThread::depthTrans_BarrierLine(cv::Mat depth, uint16_t* t_data,
 	*blackDepth = cv::Mat(480, 640, CV_16U, blk_data);
 }
 
-void ImageProcessThread::depthTrans_FindLine(cv::Mat Transdepth)
+void ImageProcessThread::depthTrans_FindLine(cv::Mat Transdepth ,int devcount)
 {
 	int i=0;
 	int Aver_Useful_Count = 0;	//10个平均点中有用的个数
@@ -434,30 +435,30 @@ void ImageProcessThread::depthTrans_FindLine(cv::Mat Transdepth)
 	
 	for (int j = 0; j < DEEPIMG_WIDTH; j++)
 	{
-		m_DistansLine[j] = 10000;
+		m_DistansLine[devcount][j] = 10000;
 		int Has_distrans = 0;	//一列中有凸起的点
 		for(int ii=0;ii<DEEPIMG_HEIGHT;ii++)
 		{
 			if(src_data[j + ii*DEEPIMG_WIDTH] != 0)	//凸起的点
 			{
-				if(src_data[j + ii*DEEPIMG_WIDTH] < m_DistansLine[j] 
+				if(src_data[j + ii*DEEPIMG_WIDTH] < m_DistansLine[devcount][j] 
 					&& src_data[j + ii*DEEPIMG_WIDTH] > 300)
 				{
 					Has_distrans = 1;
-					m_DistansLine[j] = src_data[j + ii*DEEPIMG_WIDTH];
-					m_DistansLine[j] = m_DistansLine[j]*SINX[(int)((DEEPIMG_HEIGHT - ii)/10 + st_SysParam.EditVer_Angl-23)];
+					m_DistansLine[devcount][j] = src_data[j + ii*DEEPIMG_WIDTH];
+					m_DistansLine[devcount][j] = m_DistansLine[devcount][j]*SINX[(int)((DEEPIMG_HEIGHT - ii)/10 + st_SysParam.EditVer_Angl-23)];
 				}
 			}
 		}
 		if(0 == Has_distrans)
-			m_DistansLine[j] = Lonest_dist;
+			m_DistansLine[devcount][j] = Lonest_dist;
 		//printf("m_DistansLine[%d]==%d\n",j,m_DistansLine[j]);
 	}
 	for (int j = 40; j < DEEPIMG_WIDTH - 2; j++)
 	{
-		if(m_DistansLine[j] > 3000 || m_DistansLine[j] < 300)
+		if(m_DistansLine[devcount][j] > 3000 || m_DistansLine[devcount][j] < 300)
 		{
-			m_DistansLine[j] = m_DistansLine[j+1];
+			m_DistansLine[devcount][j] = m_DistansLine[devcount][j+1];
 		}
 	}
 	for (int j = 4; j < DEEPIMG_DRAWPOINT +4; j++)
@@ -465,21 +466,21 @@ void ImageProcessThread::depthTrans_FindLine(cv::Mat Transdepth)
 		Aver_Useful_Count = 0;
 		for(int lj = 0; lj < 10; lj++)
 		{
-			if(m_DistansLine[j*10 + lj] != Lonest_dist)
+			if(m_DistansLine[devcount][j*10 + lj] != Lonest_dist)
 			{	
 				Aver_Useful_Count++;
-				m_DrawDistLine[j] += m_DistansLine[j*10 + lj];
+				m_DrawDistLine[devcount][j] += m_DistansLine[devcount][j*10 + lj];
 			}
 		}
 		if(Aver_Useful_Count)
-			m_DrawDistLine[j] = m_DrawDistLine[j]/Aver_Useful_Count;
+			m_DrawDistLine[devcount][j] = m_DrawDistLine[devcount][j]/Aver_Useful_Count;
 		else
-			m_DrawDistLine[j] = Lonest_dist;
-		if(m_DrawDistLine[j] > Lonest_dist || m_DrawDistLine[j] < 300)
+			m_DrawDistLine[devcount][j] = Lonest_dist;
+		if(m_DrawDistLine[devcount][j] > Lonest_dist || m_DrawDistLine[devcount][j] < 300)
 		{
-			m_DrawDistLine[j] = Lonest_dist;
+			m_DrawDistLine[devcount][j] = Lonest_dist;
 		}
-		main_DistPointsLine[j] = DEEPIMG_HEIGHT - (uint16_t)m_DrawDistLine[j]/5;
+		main_DistPointsLine[devcount][j] = DEEPIMG_HEIGHT - (uint16_t)m_DrawDistLine[devcount][j]/5;
 		//printf("main_DistPointsLine[%d]==%d,m_DrawDistLine[%d]==%d\n",j,main_DistPointsLine[j],j,m_DrawDistLine[j]);
 	}
 }
@@ -788,12 +789,13 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 	return 0;
 }
 
-void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void* tempdata)
+void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void* tempdata,CAMMER_PARA_S st_SysParam ,int devcount)
 {
-	CallbackData* pData = (CallbackData*)userdata;
-	//LOGD("=== Get frame %d", ++pData->index);
-	CAMMER_PARA_S st_SysParam;
-	GetCammerSysParam(&st_SysParam);
+	//CallbackData* pData = (CallbackData*)userdata;
+    CamInfo* pData = (CamInfo*) userdata;
+	LOGD("=== Get frame %d", ++pData->idx);
+	//CAMMER_PARA_S st_SysParam;
+	//GetCammerSysParam(&st_SysParam);
 	cv::Mat depth, irl, irr, color, point3D;
 	parseFrame(*frame, &depth, &irl, &irr, &color, &point3D);
     cv::Mat newDepth,TransDepth,blackDepth;
@@ -806,7 +808,7 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		//mat_blur = depth.clone();
 		#if DEEP_DISTANSLINE
 		depthTrans_BarrierLine(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth);
-		depthTrans_FindLine(mat_blur);
+		depthTrans_FindLine(mat_blur, devcount);
 		GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.GussBlurSize, st_SysParam.GussBlurSize), 0, 0, BORDER_DEFAULT); 	
 		#else
 		depthTransfer(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth);
@@ -824,41 +826,45 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 			}
 		#endif
 		//lxl add output grayimg
-		pData->render->SetColorType(DepthRender::COLORTYPE_BLUERED);//(DepthRender::COLORTYPE_GRAY);
-		cv::Mat depthColor = pData->render->Compute(TransDepth);
+		pData->render.SetColorType(DepthRender::COLORTYPE_BLUERED);//(DepthRender::COLORTYPE_GRAY);
+		cv::Mat depthColor = pData->render.Compute(TransDepth);
 		//lxl modify 2018-12-27 直接显示deep原图
-		cv::Mat RawdepthColor = pData->render->Compute(depth);
-		g_cvdeepimg = RawdepthColor.clone();
-		emit EmitFrameMessage(&g_cvdeepimg,0);
-		#if DEEP_DISTANSLINE	
-		for (int j = 0; j < DEEPIMG_WIDTH; j++)
+		cv::Mat RawdepthColor = pData->render.Compute(depth);
+		if(devcount == st_SysParam.CurrentCam)
 		{
-			//绘制出m_PointsLine向量内所有的像素点
-			m_DistansLine[j] = DEEPIMG_HEIGHT - m_DistansLine[j]/5;
-			Point P = Point(j, m_DistansLine[j]);
-			//输出到rgb
-			if(j > 3 && (j < (DEEPIMG_WIDTH - 3)))
+			g_cvdeepimg = RawdepthColor.clone();
+			emit EmitFrameMessage(&g_cvdeepimg,0);
+			#if DEEP_DISTANSLINE	
+			for (int j = 0; j < DEEPIMG_WIDTH; j++)
 			{
-				if(0)//(abs(m_DistansLine[j+1] - m_DistansLine[j]) > 10 
-					//&& abs(m_DistansLine[j+1] - m_DistansLine[j]) < DEEPIMG_HEIGHT/3
-					//&& m_DistansLine[j] < DEEPIMG_HEIGHT - 100)	//点距相差过大，画线
+				//绘制出m_PointsLine向量内所有的像素点
+				m_DistansLine[devcount][j] = DEEPIMG_HEIGHT - m_DistansLine[devcount][j]/5;
+				Point P = Point(j, m_DistansLine[devcount][j]);
+				//输出到rgb
+				if(j > 3 && (j < (DEEPIMG_WIDTH - 3)))
 				{
-					Point P2 = Point(j+1, m_DistansLine[j+1]);
-					line(depthColor,P,P2,Scalar(0, 128, 128),2);
+					if(0)//(abs(m_DistansLine[j+1] - m_DistansLine[j]) > 10 
+						//&& abs(m_DistansLine[j+1] - m_DistansLine[j]) < DEEPIMG_HEIGHT/3
+						//&& m_DistansLine[j] < DEEPIMG_HEIGHT - 100)	//点距相差过大，画线
+					{
+						Point P2 = Point(j+1, m_DistansLine[devcount][j+1]);
+						line(depthColor,P,P2,Scalar(0, 128, 128),2);
+					}else
+						circle(depthColor, P, 0, Scalar(0, 128, 128),2);
 				}else
 					circle(depthColor, P, 0, Scalar(0, 128, 128),2);
-			}else
-				circle(depthColor, P, 0, Scalar(0, 128, 128),2);
+			}
+			for (unsigned int j = 4; j < DEEPIMG_DRAWPOINT +4; j++)
+			{
+				int y = main_DistPointsLine[devcount][j];
+				Point Pdist = Point(j*10, y);
+				////circle(depthColor, Pdist, 0, Scalar(160, 32, 240),4);
+			}
+			#endif
+			//printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);
+			g_cvRawTempimg = depthColor.clone();
+			emit EmitRawTempMessage(&g_cvRawTempimg,0);
 		}
-		for (int j = 4; j < DEEPIMG_DRAWPOINT +4; j++)
-		{
-			Point Pdist = Point(j*10, main_DistPointsLine[j]);
-			////circle(depthColor, Pdist, 0, Scalar(160, 32, 240),4);
-		}
-		#endif
-		//printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);
-		g_cvRawTempimg = depthColor.clone();
-		emit EmitRawTempMessage(&g_cvRawTempimg,0);
 		if (save_frame){
 			LOGD(">>>>>>>>>> write depthColor");
 			imwrite("TransdepthColor.png", depthColor);
@@ -952,8 +958,8 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		gsave_rect_count++;
 	}
 
-	//LOGD("=== Callback: Re-enqueue buffer(%p, %d)", frame->userBuffer, frame->bufferSize);
-	ASSERT_OK(TYEnqueueBuffer(pData->hDevice, frame->userBuffer, frame->bufferSize));
+	LOGD("=== Callback: Re-enqueue buffer(%p, %d)", frame->userBuffer, frame->bufferSize);
+	ASSERT_OK(TYEnqueueBuffer(pData->hDev, frame->userBuffer, frame->bufferSize));
 }
 
 void eventCallback(TY_EVENT_INFO *event_info, void *userdata)
@@ -995,12 +1001,16 @@ void ImageProcessThread::stop()
     //QThread->requestInterruption();
 
 }
+
 void ImageProcessThread::run()
 {
 	MY_SLEEP_NS(3);
 	const char* IP = NULL;
 	const char* ID = NULL;
-	TY_DEV_HANDLE hDevice;
+	TY_DEV_HANDLE hDevice;	
+	int devnum;
+	TY_DEVICE_BASE_INFO* pBaseInfo = (TY_DEVICE_BASE_INFO*)buffer;
+	CallbackData cb_data[MAX_DEVNUM];
 	GetCammerSysParamFile(&g_SysParam);
 	CAMMER_PARA_S st_SysParam;
 	GetCammerSysParam(&st_SysParam);
@@ -1036,7 +1046,6 @@ void ImageProcessThread::run()
 	}
 	fclose(filetmp);	
 
-
 	LOGD("=== Init lib");
 	ASSERT_OK(TYInitLib());
 	TY_VERSION_INFO* pVer = (TY_VERSION_INFO*)buffer;
@@ -1045,13 +1054,11 @@ void ImageProcessThread::run()
 	printf("st_SysParam.CurrentCam==%d\n",st_SysParam.CurrentCam);
 	if(ID == NULL){
         LOGD("=== Get device info");
-        int n;
-        ASSERT_OK( TYGetDeviceNumber(&n) );
-        LOGD("     - device number %d", n);
-        TY_DEVICE_BASE_INFO* pBaseInfo = (TY_DEVICE_BASE_INFO*)buffer;
-        ASSERT_OK( TYGetDeviceList(pBaseInfo, 100, &n) );
+        ASSERT_OK( TYGetDeviceNumber(&devnum) );
+        LOGD("     - device number %d", devnum);
+        ASSERT_OK( TYGetDeviceList(pBaseInfo, 100, &devnum) );
 
-        if(n == 0){
+        if(devnum < 1){
             LOGD("=== No device got");
             return ;
         }
@@ -1071,94 +1078,98 @@ void ImageProcessThread::run()
 		//LOGD("=== st_SysParam device: %s", ID);
 		//ID = pBaseInfo[0].id;
 	}
-	LOGD("=== Open device: %s", ID);
-	ASSERT_OK(TYOpenDevice(ID, &hDevice));
+	std::vector<CamInfo> cams(devnum);
+	for(int i = 0; i < devnum; i++)
+	{
+        LOGD("=== Open device %d (id: %s)", i, pBaseInfo[i].id);		
+        strncpy(cams[i].sn, pBaseInfo[i].id, sizeof(cams[i].sn));
+		ASSERT_OK(TYOpenDevice(pBaseInfo[i].id, &cams[i].hDev));
 
-	int32_t allComps;
-	ASSERT_OK(TYGetComponentIDs(hDevice, &allComps));
-	if (!(allComps & TY_COMPONENT_RGB_CAM)){
-		LOGE("=== Has no RGB camera, cant do registration");
-		#if USE_RGBIMG
-        return ;
+		int32_t allComps;
+		ASSERT_OK(TYGetComponentIDs(cams[i].hDev, &allComps));
+		if (!(allComps & TY_COMPONENT_RGB_CAM)){
+			LOGE("=== Has no RGB camera, cant do registration");
+			#if USE_RGBIMG
+	        return ;
+			#endif
+		}
+
+		LOGD("=== Configure components");
+		//int32_t componentIDs = TY_COMPONENT_POINT3D_CAM | TY_COMPONENT_RGB_CAM;
+	    int32_t componentIDs = TY_COMPONENT_DEPTH_CAM | TY_COMPONENT_IR_CAM_LEFT | TY_COMPONENT_IR_CAM_RIGHT;
+		ASSERT_OK(TYEnableComponents(cams[i].hDev, componentIDs));
+		#if 1
+	    // set cam_gain and laser_power
+	    ASSERT_OK(TYSetInt(cams[i].hDev, TY_COMPONENT_IR_CAM_LEFT, TY_INT_GAIN, st_SysParam.Gain_max));  //16/32/64/128/254  3~254
+		ASSERT_OK(TYSetInt(cams[i].hDev, TY_COMPONENT_IR_CAM_RIGHT, TY_INT_GAIN, st_SysParam.Gain_max)); //16/32/64/128/254
+		ASSERT_OK(TYSetInt(cams[i].hDev, TY_COMPONENT_LASER, TY_INT_LASER_POWER,st_SysParam.Gain_thold_max)); // 1~100
+		
+		//get the histro 
+		ASSERT_OK(TYEnableComponents(cams[i].hDev, TY_COMPONENT_BRIGHT_HISTO));
+	    int err = TYSetEnum(cams[i].hDev, TY_COMPONENT_DEPTH_CAM, TY_ENUM_IMAGE_MODE, TY_IMAGE_MODE_640x480);
+	    ASSERT(err == TY_STATUS_OK || err == TY_STATUS_NOT_PERMITTED);
+		#endif
+
+		LOGD("=== Prepare image buffer");
+		int32_t frameSize;
+
+		//frameSize = 1280 * 960 * (3 + 2 + 2);
+		ASSERT_OK(TYGetFrameBufferSize(cams[i].hDev, &frameSize));
+		LOGD("     - Get size of framebuffer, %d", frameSize);
+		LOGD("     - Allocate & enqueue buffers");
+		//char* frameBuffer[2];	//not use anymore
+		cams[i].fb[0] = new char[frameSize];
+		cams[i].fb[1] = new char[frameSize];
+		LOGD("     - Enqueue buffer (%p, %d)", cams[i].fb[0], frameSize);
+		ASSERT_OK(TYEnqueueBuffer(cams[i].hDev, cams[i].fb[0], frameSize));
+		LOGD("     - Enqueue buffer (%p, %d)", cams[i].fb[1], frameSize);
+		ASSERT_OK(TYEnqueueBuffer(cams[i].hDev, cams[i].fb[1], frameSize));
+		#if 0
+		LOGD("=== Register callback");
+		LOGD("Note: Callback may block internal data receiving,");
+		LOGD("      so that user should not do long time work in callback.");
+		LOGD("      To avoid copying data, we pop the framebuffer from buffer queue and");
+		LOGD("      give it back to user, user should call TYEnqueueBuffer to re-enqueue it.");
+		DepthRender render;
+		cb_data[i].index = 0;
+		cb_data[i].hDevice = cams[i].hDev;
+		cb_data[i].render = &render;
+		// ASSERT_OK( TYRegisterCallback(hDevice, frameCallback, &cb_data) );
+
+		LOGD("=== Register event callback");
+		LOGD("Note: Callback may block internal data receiving,");
+		LOGD("      so that user should not do long time work in callback.");
+		ASSERT_OK(TYRegisterEventCallback(cams[i].hDev, eventCallback, NULL));
+		#endif
+		LOGD("=== Disable trigger mode");
+		ASSERT_OK(TYSetBool(cams[i].hDev, TY_COMPONENT_DEVICE, TY_BOOL_TRIGGER_MODE, false));
+
+		LOGD("=== Start capture");
+		ASSERT_OK(TYStartCapture(cams[i].hDev));
+		#if 0
+		LOGD("=== Read color rectify matrix");
+		{
+			TY_CAMERA_DISTORTION color_dist;
+			TY_CAMERA_INTRINSIC color_intri;
+			TY_STATUS ret = TYGetStruct(cams[i].hDev, TY_COMPONENT_RGB_CAM, TY_STRUCT_CAM_DISTORTION, &color_dist, sizeof(color_dist));
+			ret |= TYGetStruct(cams[i].hDev, TY_COMPONENT_RGB_CAM, TY_STRUCT_CAM_INTRINSIC, &color_intri, sizeof(color_intri));
+			if (ret == TY_STATUS_OK)
+			{
+				cb_data[i].color_intri = color_intri;
+				cb_data[i].color_dist = color_dist;
+			}
+			else
+			{ //reading data from device failed .set some default values....
+				memset(cb_data[i].color_dist.data, 0, 12 * sizeof(float));
+				memset(cb_data[i].color_intri.data, 0, 9 * sizeof(float));
+				cb_data[i].color_intri.data[0] = 1000.f;
+				cb_data[i].color_intri.data[4] = 1000.f;
+				cb_data[i].color_intri.data[2] = 600.f;
+				cb_data[i].color_intri.data[5] = 450.f;
+			}
+		}
 		#endif
 	}
-
-	LOGD("=== Configure components");
-	//int32_t componentIDs = TY_COMPONENT_POINT3D_CAM | TY_COMPONENT_RGB_CAM;
-    int32_t componentIDs = TY_COMPONENT_DEPTH_CAM | TY_COMPONENT_IR_CAM_LEFT | TY_COMPONENT_IR_CAM_RIGHT;
-	ASSERT_OK(TYEnableComponents(hDevice, componentIDs));
-	#if 1
-    // set cam_gain and laser_power
-    ASSERT_OK(TYSetInt(hDevice, TY_COMPONENT_IR_CAM_LEFT, TY_INT_GAIN, st_SysParam.Gain_max));  //16/32/64/128/254  3~254
-	ASSERT_OK(TYSetInt(hDevice, TY_COMPONENT_IR_CAM_RIGHT, TY_INT_GAIN, st_SysParam.Gain_max)); //16/32/64/128/254
-	ASSERT_OK(TYSetInt(hDevice, TY_COMPONENT_LASER, TY_INT_LASER_POWER,st_SysParam.Gain_thold_max)); // 1~100
-	
-	//get the histro 
-	ASSERT_OK(TYEnableComponents(hDevice, TY_COMPONENT_BRIGHT_HISTO));
-    int err = TYSetEnum(hDevice, TY_COMPONENT_DEPTH_CAM, TY_ENUM_IMAGE_MODE, TY_IMAGE_MODE_640x480);
-    ASSERT(err == TY_STATUS_OK || err == TY_STATUS_NOT_PERMITTED);
-	#endif
-
-	LOGD("=== Prepare image buffer");
-	int32_t frameSize;
-
-	//frameSize = 1280 * 960 * (3 + 2 + 2);
-	ASSERT_OK(TYGetFrameBufferSize(hDevice, &frameSize));
-	LOGD("     - Get size of framebuffer, %d", frameSize);
-	LOGD("     - Allocate & enqueue buffers");
-	char* frameBuffer[2];
-	frameBuffer[0] = new char[frameSize];
-	frameBuffer[1] = new char[frameSize];
-	LOGD("     - Enqueue buffer (%p, %d)", frameBuffer[0], frameSize);
-	ASSERT_OK(TYEnqueueBuffer(hDevice, frameBuffer[0], frameSize));
-	LOGD("     - Enqueue buffer (%p, %d)", frameBuffer[1], frameSize);
-	ASSERT_OK(TYEnqueueBuffer(hDevice, frameBuffer[1], frameSize));
-
-	LOGD("=== Register callback");
-	LOGD("Note: Callback may block internal data receiving,");
-	LOGD("      so that user should not do long time work in callback.");
-	LOGD("      To avoid copying data, we pop the framebuffer from buffer queue and");
-	LOGD("      give it back to user, user should call TYEnqueueBuffer to re-enqueue it.");
-	DepthRender render;
-	CallbackData cb_data;
-	cb_data.index = 0;
-	cb_data.hDevice = hDevice;
-	cb_data.render = &render;
-	// ASSERT_OK( TYRegisterCallback(hDevice, frameCallback, &cb_data) );
-
-	LOGD("=== Register event callback");
-	LOGD("Note: Callback may block internal data receiving,");
-	LOGD("      so that user should not do long time work in callback.");
-	ASSERT_OK(TYRegisterEventCallback(hDevice, eventCallback, NULL));
-
-	LOGD("=== Disable trigger mode");
-	ASSERT_OK(TYSetBool(hDevice, TY_COMPONENT_DEVICE, TY_BOOL_TRIGGER_MODE, false));
-
-	LOGD("=== Start capture");
-	ASSERT_OK(TYStartCapture(hDevice));
-
-	LOGD("=== Read color rectify matrix");
-	{
-		TY_CAMERA_DISTORTION color_dist;
-		TY_CAMERA_INTRINSIC color_intri;
-		TY_STATUS ret = TYGetStruct(hDevice, TY_COMPONENT_RGB_CAM, TY_STRUCT_CAM_DISTORTION, &color_dist, sizeof(color_dist));
-		ret |= TYGetStruct(hDevice, TY_COMPONENT_RGB_CAM, TY_STRUCT_CAM_INTRINSIC, &color_intri, sizeof(color_intri));
-		if (ret == TY_STATUS_OK)
-		{
-			cb_data.color_intri = color_intri;
-			cb_data.color_dist = color_dist;
-		}
-		else
-		{ //reading data from device failed .set some default values....
-			memset(cb_data.color_dist.data, 0, 12 * sizeof(float));
-			memset(cb_data.color_intri.data, 0, 9 * sizeof(float));
-			cb_data.color_intri.data[0] = 1000.f;
-			cb_data.color_intri.data[4] = 1000.f;
-			cb_data.color_intri.data[2] = 600.f;
-			cb_data.color_intri.data[5] = 450.f;
-		}
-	}
-
 	LOGD("=== Wait for callback");
 	exit_main = false;
 	//while (!exit_main)
@@ -1167,35 +1178,44 @@ void ImageProcessThread::run()
 	{
 		if(bStop)
             break;
-		TY_FRAME_DATA frame;
-		int err = TYFetchFrame(hDevice, &frame, -1);
-		if (err != TY_STATUS_OK) {
-			LOGE("Fetch frame error %d: %s", err, TYErrorString(err));
-			break;
-		}
-		else {
-            handleFrame(&frame, &cb_data , (void*)g_imgtempImgBuf);
-		}
-		if(g_IsTemp_btn)
+		GetCammerSysParam(&st_SysParam);
+		for(int i = 0; i < cams.size(); i++) 
 		{
-			//Open_TempImg();
-			memcpy(g_imgtempImgBuf, g_tmpbuffer, BUFF_SIZE);
-			g_IsTemp_btn  = 0;
+			//TY_FRAME_DATA frame;
+			int err = 0;
+			if(i == st_SysParam.CurrentCam)
+				err = TYFetchFrame(cams[i].hDev, &cams[i].frame, 1000);
+			if (err != TY_STATUS_OK) {
+				LOGE("Fetch frame error %d at cams[%d]: %s", err,i, TYErrorString(err));
+				break;
+			}
+			else if(i == st_SysParam.CurrentCam){	//目前先处理选中的相机
+	            handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf ,st_SysParam ,i);
+			}
+			LOGD("Fetch frame sucess %d at cams[%d]", err,i);
+			if(g_IsTemp_btn)
+			{
+				//Open_TempImg();
+				memcpy(g_imgtempImgBuf, g_tmpbuffer, BUFF_SIZE);
+				g_IsTemp_btn  = 0;
+			}
+			if(1)//(m_PointsLine[0] != 0)	//modify at 2019-1-26
+			{
+				memcpy(&main_PointsLine[i], &m_PointsLine[i], sizeof(int)*DEEPIMG_WIDTH);
+				g_is_point_OK = 1;
+			}
+	        MY_SLEEP_MS(100);
+	        //usleep(2000);
 		}
-		if(1)//(m_PointsLine[0] != 0)	//modify at 2019-1-26
-		{
-			memcpy(main_PointsLine, m_PointsLine, sizeof(int)*DEEPIMG_WIDTH);
-			g_is_point_OK = 1;
-		}
-        MY_SLEEP_MS(100);
-        //usleep(2000);
 	}
-
-	ASSERT_OK(TYStopCapture(hDevice));
-	ASSERT_OK(TYCloseDevice(hDevice));
-	ASSERT_OK(TYDeinitLib());
-	delete frameBuffer[0];
-	delete frameBuffer[1];
+	for(int i = 0; i < devnum; i++)
+	{
+		ASSERT_OK(TYStopCapture(cams[i].hDev));
+		ASSERT_OK(TYCloseDevice(cams[i].hDev));
+		ASSERT_OK(TYDeinitLib());
+		delete cams[i].fb[0];
+		delete cams[i].fb[1];
+	}
 
 	LOGD("=== Main done!");
 }
