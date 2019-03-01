@@ -14,10 +14,17 @@ using namespace cv;
 
 static char buffer[1024 * 1024 * 20];
 
-char *g_tmpbuffer = NULL;
-char * g_imgtempImgBuf = NULL;
+char *g_tmpbuffer_0 = NULL;
+char * g_imgtempImgBuf_0 = NULL;
+char *g_tmpbuffer_1 = NULL;
+char * g_imgtempImgBuf_1 = NULL;
+char *g_tmpbuffer_2 = NULL;
+char * g_imgtempImgBuf_2 = NULL;
+char *g_tmpbuffer_3 = NULL;
+char * g_imgtempImgBuf_3 = NULL;
+char *g_tmpbuffer_4 = NULL;
+char * g_imgtempImgBuf_4 = NULL;
 
-#define BUFF_SIZE  1024*1024*8
 volatile bool exit_main;
 volatile bool save_frame;
 volatile bool save_rect_color;
@@ -791,9 +798,11 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 
 void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void* tempdata,CAMMER_PARA_S st_SysParam ,int devcount)
 {
+	
+	const char* ID = NULL;
 	//CallbackData* pData = (CallbackData*)userdata;
     CamInfo* pData = (CamInfo*) userdata;
-	LOGD("=== Get frame %d", ++pData->idx);
+	//LOGD("=== Get frame %d", ++pData->idx);
 	//CAMMER_PARA_S st_SysParam;
 	//GetCammerSysParam(&st_SysParam);
 	cv::Mat depth, irl, irr, color, point3D;
@@ -830,7 +839,19 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		cv::Mat depthColor = pData->render.Compute(TransDepth);
 		//lxl modify 2018-12-27 直接显示deep原图
 		cv::Mat RawdepthColor = pData->render.Compute(depth);
-		if(devcount == st_SysParam.CurrentCam)
+		if(st_SysParam.CurrentCam <= 0)
+			st_SysParam.CurrentCam = 0;
+		if(0 == st_SysParam.CurrentCam)
+			ID = st_SysParam.id1;
+		else if(1 == st_SysParam.CurrentCam)
+			ID = st_SysParam.id2;
+		else if(2 == st_SysParam.CurrentCam)
+			ID = st_SysParam.id3;
+		else if(3 == st_SysParam.CurrentCam)
+			ID = st_SysParam.id4;
+		else if(4 == st_SysParam.CurrentCam)
+			ID = st_SysParam.id5;
+		if(0 == strcmp(pData->sn,ID))
 		{
 			g_cvdeepimg = RawdepthColor.clone();
 			emit EmitFrameMessage(&g_cvdeepimg,0);
@@ -958,7 +979,7 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		gsave_rect_count++;
 	}
 
-	LOGD("=== Callback: Re-enqueue buffer(%p, %d)", frame->userBuffer, frame->bufferSize);
+	//LOGD("=== Callback: Re-enqueue buffer(%p, %d)", frame->userBuffer, frame->bufferSize);
 	ASSERT_OK(TYEnqueueBuffer(pData->hDev, frame->userBuffer, frame->bufferSize));
 }
 
@@ -979,8 +1000,16 @@ ImageProcessThread::ImageProcessThread(QObject *parent) :
     QThread(parent)
 {
     bStop = false;
-	g_tmpbuffer = (char *)malloc(BUFF_SIZE);
-	g_imgtempImgBuf = (char *)malloc(BUFF_SIZE);
+	g_tmpbuffer_0 = (char *)malloc(BUFF_SIZE);
+	g_imgtempImgBuf_0 = (char *)malloc(BUFF_SIZE);
+	g_tmpbuffer_1 = (char *)malloc(BUFF_SIZE);
+	g_imgtempImgBuf_1 = (char *)malloc(BUFF_SIZE);
+	g_tmpbuffer_2 = (char *)malloc(BUFF_SIZE);
+	g_imgtempImgBuf_2 = (char *)malloc(BUFF_SIZE);
+	g_tmpbuffer_3 = (char *)malloc(BUFF_SIZE);
+	g_imgtempImgBuf_3 = (char *)malloc(BUFF_SIZE);
+	g_tmpbuffer_4 = (char *)malloc(BUFF_SIZE);
+	g_imgtempImgBuf_4 = (char *)malloc(BUFF_SIZE);
 }
 ImageProcessThread::~ImageProcessThread()
 {
@@ -988,10 +1017,26 @@ ImageProcessThread::~ImageProcessThread()
         //QThread->requestInterruption();
         //QThread->quit();
         //QThread->wait();
-		free(g_tmpbuffer);
-		free(g_imgtempImgBuf);
-		g_tmpbuffer = NULL;
-		g_imgtempImgBuf = NULL;
+	free(g_tmpbuffer_0);
+	free(g_imgtempImgBuf_0);
+	free(g_tmpbuffer_1);
+	free(g_imgtempImgBuf_1);
+	free(g_tmpbuffer_2);
+	free(g_imgtempImgBuf_2);
+	free(g_tmpbuffer_3);
+	free(g_imgtempImgBuf_3);
+	free(g_tmpbuffer_4);
+	free(g_imgtempImgBuf_4);
+	g_tmpbuffer_0 = NULL;
+	g_imgtempImgBuf_0 = NULL;
+	g_tmpbuffer_1 = NULL;
+	g_imgtempImgBuf_1 = NULL;
+	g_tmpbuffer_2 = NULL;
+	g_imgtempImgBuf_2 = NULL;
+	g_tmpbuffer_3 = NULL;
+	g_imgtempImgBuf_3 = NULL;
+	g_tmpbuffer_4 = NULL;
+	g_imgtempImgBuf_4 = NULL;
 }
 
 
@@ -1005,8 +1050,8 @@ void ImageProcessThread::stop()
 void ImageProcessThread::run()
 {
 	MY_SLEEP_NS(3);
-	const char* IP = NULL;
-	const char* ID = NULL;
+	//const char* IP = NULL;
+	const char* HAS_ID = NULL;
 	TY_DEV_HANDLE hDevice;	
 	int devnum;
 	TY_DEVICE_BASE_INFO* pBaseInfo = (TY_DEVICE_BASE_INFO*)buffer;
@@ -1037,7 +1082,7 @@ void ImageProcessThread::run()
         return ;
 	}
 	printf("fopen %s ok\n",tempimg);
-	if (gm_width*gm_hight * 2 != fread(g_imgtempImgBuf, 1, gm_width*gm_hight*2, filetmp))
+	if (gm_width*gm_hight * 2 != fread(g_imgtempImgBuf_0, 1, gm_width*gm_hight*2, filetmp))
 	{
 		//提示文件读取错误  
 		fclose(filetmp);
@@ -1052,7 +1097,7 @@ void ImageProcessThread::run()
 	ASSERT_OK(TYLibVersion(pVer));
 	LOGD("     - lib version: %d.%d.%d", pVer->major, pVer->minor, pVer->patch);
 	printf("st_SysParam.CurrentCam==%d\n",st_SysParam.CurrentCam);
-	if(ID == NULL){
+	if(HAS_ID == NULL){
         LOGD("=== Get device info");
         ASSERT_OK( TYGetDeviceNumber(&devnum) );
         LOGD("     - device number %d", devnum);
@@ -1062,18 +1107,6 @@ void ImageProcessThread::run()
             LOGD("=== No device got");
             return ;
         }
-	  	if(st_SysParam.CurrentCam <= 0)
-			st_SysParam.CurrentCam = 0;
-		if(0 == st_SysParam.CurrentCam)
-			ID = st_SysParam.id1;
-		else if(1 == st_SysParam.CurrentCam)
-			ID = st_SysParam.id2;
-		else if(2 == st_SysParam.CurrentCam)
-			ID = st_SysParam.id3;
-		else if(3 == st_SysParam.CurrentCam)
-			ID = st_SysParam.id4;
-		else if(4 == st_SysParam.CurrentCam)
-			ID = st_SysParam.id5; 
 
 		//LOGD("=== st_SysParam device: %s", ID);
 		//ID = pBaseInfo[0].id;
@@ -1088,7 +1121,7 @@ void ImageProcessThread::run()
 		int32_t allComps;
 		ASSERT_OK(TYGetComponentIDs(cams[i].hDev, &allComps));
 		if (!(allComps & TY_COMPONENT_RGB_CAM)){
-			LOGE("=== Has no RGB camera, cant do registration");
+			LOGE("=== Has no RGB camera, allComps==%0X",allComps);
 			#if USE_RGBIMG
 	        return ;
 			#endif
@@ -1183,28 +1216,32 @@ void ImageProcessThread::run()
 		{
 			//TY_FRAME_DATA frame;
 			int err = 0;
-			if(i == st_SysParam.CurrentCam)
+			if(1)//(i == st_SysParam.CurrentCam)
 				err = TYFetchFrame(cams[i].hDev, &cams[i].frame, 1000);
 			if (err != TY_STATUS_OK) {
 				LOGE("Fetch frame error %d at cams[%d]: %s", err,i, TYErrorString(err));
 				break;
 			}
-			else if(i == st_SysParam.CurrentCam){	//目前先处理选中的相机
-	            handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf ,st_SysParam ,i);
+			else //if(i == st_SysParam.CurrentCam)
+			{	//目前先处理选中的相机
+	            handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf_0 ,st_SysParam ,i);
 			}
-			LOGD("Fetch frame sucess %d at cams[%d]", err,i);
-			if(g_IsTemp_btn)
+			//LOGD("Fetch frame sucess %d at cams[%d]", err,i);
+			if(g_IsTemp_btn >= 0)
 			{
 				//Open_TempImg();
-				memcpy(g_imgtempImgBuf, g_tmpbuffer, BUFF_SIZE);
-				g_IsTemp_btn  = 0;
+				//for(int i = 0; i < MAX_DEVNUM; i++)
+				{	//哪个相机的模板换了就替换哪个buf
+					memcpy(g_imgtempImgBuf_0, g_tmpbuffer_0, BUFF_SIZE);
+				}
+				g_IsTemp_btn  = -1;
 			}
 			if(1)//(m_PointsLine[0] != 0)	//modify at 2019-1-26
 			{
 				memcpy(&main_PointsLine[i], &m_PointsLine[i], sizeof(int)*DEEPIMG_WIDTH);
 				g_is_point_OK = 1;
 			}
-	        MY_SLEEP_MS(100);
+	        MY_SLEEP_MS(1);
 	        //usleep(2000);
 		}
 	}

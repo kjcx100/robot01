@@ -23,7 +23,7 @@ extern cv::Mat g_cvdeepimg;
 extern cv::Mat g_cvRawTempimg;
 
 extern int g_IsTemp_btn;
-extern char* g_tmpbuffer;
+extern char* g_tmpbuffer_0;
 extern int gm_width ;
 extern int gm_hight ;
 extern volatile bool exit_main;
@@ -79,20 +79,29 @@ MainWindow::MainWindow(QWidget *parent) :
         connect( pTimer1S, SIGNAL(timeout()), this, SLOT(call_timerDone_1s()) );
         pTimer1S->start(1000);              // 1秒单触发定时器
     }
-
-	connect(&m_ImageProcessThread, SIGNAL(EmitFrameMessage(cv::Mat*, int)), this, SLOT(EmitFrameMessage(cv::Mat*, int)));
-	connect(&m_ImageProcessThread, SIGNAL(EmitOutFrameMessage(cv::Mat*, int)), this, SLOT(EmitOutFrameMessage(cv::Mat*, int)));
-	connect(&m_ImageProcessThread, SIGNAL(EmitRawTempMessage(cv::Mat*, int)), this, SLOT(EmitRawTempMessage(cv::Mat*, int)));
 	for(int devi = 0; devi < MAX_DEVNUM; devi++)
 	{
-		for(int i=0; i < gm_width ; i++)
+		for(int i=0; i < DEEPIMG_WIDTH ; i++)
 		{
 			main_PointsLine[devi][i] = 0 ;
+		}
+	}
+	for(int devi = 0; devi < MAX_DEVNUM; devi++)
+	{
+		for(int i=0; i < DEEPIMG_DRAWPOINT ; i++)
+		{
 			main_DistPointsLine[devi][i] = 0 ;
 		}
 	}
+
     m_ImageProcessThread.start();
-	qDebug("m_ImageProcessThread start!!!%d\n",__LINE__);}
+	qDebug("m_ImageProcessThread start!!!%d\n",__LINE__);	
+	connect(&m_ImageProcessThread, SIGNAL(EmitFrameMessage(cv::Mat*, int)), this, SLOT(EmitFrameMessage(cv::Mat*, int)));
+	connect(&m_ImageProcessThread, SIGNAL(EmitOutFrameMessage(cv::Mat*, int)), this, SLOT(EmitOutFrameMessage(cv::Mat*, int)));
+	connect(&m_ImageProcessThread, SIGNAL(EmitRawTempMessage(cv::Mat*, int)), this, SLOT(EmitRawTempMessage(cv::Mat*, int)));
+
+
+}
 void MainWindow::paintEvent(QPaintEvent *)
 {
 	//绘制结果显示背景	26+420+420	-->>40+420+420
@@ -138,6 +147,8 @@ void MainWindow::on_TempBtn_clicked()
 	    ui->RawImg->setPixmap(QPixmap::fromImage(img));
 	}
 #else
+	CAMMER_PARA_S st_SysParam;
+	GetCammerSysParam(&st_SysParam);
 	    //调用窗口打开文件
     QString filename = QFileDialog::getOpenFileName(this,
                                                     QObject::tr("open image"),
@@ -160,7 +171,7 @@ void MainWindow::on_TempBtn_clicked()
         return ;
 	}
 	printf("fopen %s ok,gm_width==%d,gm_hight==%d\n",filename.toLocal8Bit().data(),gm_width,gm_hight);
-	if (gm_width*gm_hight * 2 != fread(g_tmpbuffer, 1, gm_width*gm_hight*2, filetmp))
+	if (gm_width*gm_hight * 2 != fread(g_tmpbuffer_0, 1, gm_width*gm_hight*2, filetmp))
 	{
 		//提示文件读取错误  
 		fclose(filetmp);
@@ -168,7 +179,7 @@ void MainWindow::on_TempBtn_clicked()
         return ;
 	}
 	fclose(filetmp);
-	g_IsTemp_btn = 1;
+	g_IsTemp_btn = st_SysParam.CurrentCam;
 #endif
 }
 void MainWindow::call_timerDone_1s()
@@ -217,6 +228,10 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
     pen.setColor(Qt::white);
     painter.setPen(pen);
 
+	painter.drawLine(QPoint(start_x+w/2- h/4,start_y +h*0.067),QPoint(start_x +w/2 +h/4,start_y + h*0.933));
+	painter.drawLine(QPoint(start_x+w/2+ h/4,start_y +h*0.067),QPoint(start_x +w/2 -h/4,start_y + h*0.933));
+	painter.drawLine(QPoint(start_x+w/2+ h*0.433,start_y +h/4),QPoint(start_x +w/2 -h*0.433,start_y + h*3/4));
+	painter.drawLine(QPoint(start_x+w/2+ h*0.433,start_y + h*3/4),QPoint(start_x +w/2 -h*0.433,start_y + h/4));
 	int circleNum = 8;
 	painter.drawLine( QPoint(start_x ,start_y + h/2), QPoint(start_x + w,start_y + h/2));
 	painter.drawLine( QPoint(start_x + w/2,start_y), QPoint(start_x + w/2,start_y + h));
@@ -224,6 +239,7 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
     painter.drawEllipse(QPointF(start_x + w/2, start_y + h/2), h*2/circleNum, h*2/circleNum);
     painter.drawEllipse(QPointF(start_x + w/2, start_y + h/2), h*3/circleNum, h*3/circleNum);
     painter.drawEllipse(QPointF(start_x + w/2, start_y + h/2), h*4/circleNum, h*4/circleNum);
+
     QPixmap pix;
     pix.load(":/bg_img/car_black.jpg");
 	int carpic_w = 40;
@@ -235,13 +251,23 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	//font.setUnderline(true);
 	//使用字体
 	painter.setFont(font);
-	painter.drawText(start_x + 4, start_y + 24, tr("极坐标图"));
+	painter.drawText(start_x + 4, start_y + 24, tr("DIST MAP"));
 	//painter.drawText(start_x + 4, start_y + 40,tr("(%1, %2)").arg(m_mouse_x).arg(m_mouse_y));
+
+	pen.setWidth(1);
+	pen.setStyle(Qt::DashLine);
+	pen.setColor(Qt::darkCyan);
+    painter.setPen(pen);
+	painter.drawLine(QPoint(start_x+w/2- h/4,start_y +h*0.067),QPoint(start_x +w/2 +h/4,start_y + h*0.933));
+	painter.drawLine(QPoint(start_x+w/2+ h/4,start_y +h*0.067),QPoint(start_x +w/2 -h/4,start_y + h*0.933));
+	painter.drawLine(QPoint(start_x+w/2+ h*0.433,start_y +h/4),QPoint(start_x +w/2 -h*0.433,start_y + h*3/4));
+	painter.drawLine(QPoint(start_x+w/2+ h*0.433,start_y + h*3/4),QPoint(start_x +w/2 -h*0.433,start_y + h/4));
 
 	//###############分割线
 	//重新设置画笔
     pen.setWidth(2);
     pen.setColor(Qt::yellow);
+	pen.setStyle(Qt::SolidLine);
     painter.setPen(pen);
 	int qPNum = 60;
 	int halfqPNum = 30;
@@ -249,7 +275,7 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	int PointsLine[MAX_DEVNUM][qPNum];
 	int DisPointsLine[MAX_DEVNUM][qPNum];	//由point转换为距离 dispoint = PointsLine/tan(x)
 	int DisLine[MAX_DEVNUM][qPNum];
-	for(int device = 0; device <= MAX_DEVNUM ;device++)
+	for(int device = 0; device < MAX_DEVNUM -1 ;device++)
 	{
 		#if DEEP_DISTANSLINE
 		for(int a = 0;a < qPNum; a++)
@@ -275,6 +301,7 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 		}
 		for(int a = 0;a < qPNum; a++)
 		{
+			//printf("PointsLine[device][a]==%d",PointsLine[device][a]);
 			DisLine[device][a] = st_SysParam.Edit_instalHeight*TANX[(int)((DEEPIMG_HEIGHT - PointsLine[device][a])/10 + st_SysParam.EditVer_Angl-23)];
 			//if(DisLine[a] > 200)
 			//	DisLine[a] = 200;
@@ -365,7 +392,7 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
     pen.setWidth(2);
     pen.setColor(Qt::red);
     painter.setPen(pen);
-	for(int device = 0; device <= MAX_DEVNUM ;device++)
+	for(int device = 0; device < MAX_DEVNUM -1 ;device++)
 	{
 		if(0 == device)
 		{
