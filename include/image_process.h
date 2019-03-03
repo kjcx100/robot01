@@ -56,7 +56,7 @@ public:
 	bool verifySizes(cv::Rect mr);
 	bool calcSafeRect(const cv::RotatedRect &roi_rect, const cv::Mat &src,cv::Rect_<float> &safeBoundRect);
 	void depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat* newDepth, cv::Mat* blackDepth);
-	void depthTrans_BarrierLine(cv::Mat depth, uint16_t* t_data, cv::Mat* newDepth, cv::Mat* blackDepth);	
+	void depthTrans_BarrierLine(cv::Mat depth, uint16_t* t_data, cv::Mat* newDepth, cv::Mat* blackDepth,int devcount);	
 	void depthTrans_FindLine(cv::Mat Transdepth ,int devcount);
 	cv::Mat cvMatRect2Tetra(cv::Mat mtxSrc, int iDstX1, int iDstY1, int iDstX2, int iDstY2,
 						int iDstX3, int iDstY3, int iDstX4, int iDstY4, int iDstWidth, int iDstHeight);

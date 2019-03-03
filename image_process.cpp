@@ -42,7 +42,7 @@ Mat g_cvdeepimg;
 Mat g_cvOutimg;
 Mat g_cvRawTempimg;
 
-int g_IsTemp_btn = 0;
+int g_IsTemp_btn = -1;	//初始值设置为-1 ==图像数据拷贝后的设置值
 int gm_width = 640;
 int gm_hight = 480;
 
@@ -300,7 +300,7 @@ void ImageProcessThread::depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat*
 		for (int j = 0; j < DEEPIMG_WIDTH; j++)
 		{
 			i = ii*DEEPIMG_WIDTH + j;
-			treshhold = (uint16_t)(t_data[i]*st_SysParam.Temp_threshold);
+			treshhold = (uint16_t)(t_data[i]*st_SysParam.stPerCammer[0].Temp_threshold);
 			if(src_data[i] == 0)
 			{
 				dst_data[i] = 0;
@@ -314,7 +314,7 @@ void ImageProcessThread::depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat*
 				//dst_data[i] = 0;	//凹下去的也设置为0
 				//dst_data[i] = 1200;
 				#if 1
-				shift_y = (t_data[i] - src_data[i])*shift_index*SINX[(int)((DEEPIMG_HEIGHT - ii)/10 + st_SysParam.EditVer_Angl-23)];	//y坐标的偏移量=距离差*sinx
+				shift_y = (t_data[i] - src_data[i])*shift_index*SINX[(int)((DEEPIMG_HEIGHT - ii)/10 + st_SysParam.stPerCammer[0].EditVer_Angl-23)];	//y坐标的偏移量=距离差*sinx
 				if(i + shift_y*gm_width < Total_pix)
 					dst_data[i + shift_y*gm_width] = 2500;
 				else
@@ -325,7 +325,7 @@ void ImageProcessThread::depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat*
 			{
 				//dst_data[i] = 2500;
 				//dst_data[i] = t_data[i];	//保留深度 信息
-				shift_y = (src_data[i] - t_data[i])*shift_index*SINX[(int)((DEEPIMG_HEIGHT - ii)/10 + st_SysParam.EditVer_Angl-23)];	//y坐标的偏移量=距离差*sinx
+				shift_y = (src_data[i] - t_data[i])*shift_index*SINX[(int)((DEEPIMG_HEIGHT - ii)/10 + st_SysParam.stPerCammer[0].EditVer_Angl-23)];	//y坐标的偏移量=距离差*sinx
 				if(i + shift_y*gm_width < Total_pix)
 					dst_data[i + shift_y*gm_width] = 2500;
 				else
@@ -350,7 +350,7 @@ void ImageProcessThread::depthTransfer(cv::Mat depth, uint16_t* t_data, cv::Mat*
 	*blackDepth = cv::Mat(480, 640, CV_16U, blk_data);
 }
 
-void ImageProcessThread::depthTrans_BarrierLine(cv::Mat depth, uint16_t* t_data, cv::Mat* newDepth, cv::Mat* blackDepth)
+void ImageProcessThread::depthTrans_BarrierLine(cv::Mat depth, uint16_t* t_data, cv::Mat* newDepth, cv::Mat* blackDepth,int devcount)
 {
 	int i=0;
 	uint16_t dst_data[480*640];
@@ -365,7 +365,7 @@ void ImageProcessThread::depthTrans_BarrierLine(cv::Mat depth, uint16_t* t_data,
 	memset(blk_data,0,480*640*2);
 	for(i=0;i<(480*640);i++)
 	{
-		treshhold = (uint16_t)(t_data[i]*st_SysParam.Temp_threshold);
+		treshhold = (uint16_t)(t_data[i]*st_SysParam.stPerCammer[devcount].Temp_threshold);
 		if(src_data[i] == 0)
 		{
 			dst_data[i] = 0;
@@ -390,10 +390,10 @@ void ImageProcessThread::depthTrans_BarrierLine(cv::Mat depth, uint16_t* t_data,
 			dst_data[i] = 0;
 		}
 		//输入depth图像先切掉两块 上边，左边
-		if(i <= st_SysParam.PixHight_End*640)
+		if(i <= st_SysParam.stPerCammer[devcount].PixHight_End*640)
 			dst_data[i] = 0;
 		//if( i > 40 && j <= 112)
-		if( i > st_SysParam.PixHight_End*640 && (i%640) <= st_SysParam.PixWidth_End)
+		if( i > st_SysParam.stPerCammer[devcount].PixHight_End*640 && (i%640) <= st_SysParam.stPerCammer[devcount].PixWidth_End)
 			dst_data[i] = 0;
 
 	}
@@ -453,7 +453,7 @@ void ImageProcessThread::depthTrans_FindLine(cv::Mat Transdepth ,int devcount)
 				{
 					Has_distrans = 1;
 					m_DistansLine[devcount][j] = src_data[j + ii*DEEPIMG_WIDTH];
-					m_DistansLine[devcount][j] = m_DistansLine[devcount][j]*SINX[(int)((DEEPIMG_HEIGHT - ii)/10 + st_SysParam.EditVer_Angl-23)];
+					m_DistansLine[devcount][j] = m_DistansLine[devcount][j]*SINX[(int)((DEEPIMG_HEIGHT - ii)/10 + st_SysParam.stPerCammer[devcount].EditVer_Angl-23)];
 				}
 			}
 		}
@@ -468,7 +468,7 @@ void ImageProcessThread::depthTrans_FindLine(cv::Mat Transdepth ,int devcount)
 			m_DistansLine[devcount][j] = m_DistansLine[devcount][j+1];
 		}
 	}
-	for (int j = 4; j < DEEPIMG_DRAWPOINT +4; j++)
+	for (int j = DRAWPOINT_START; j < DEEPIMG_DRAWPOINT +8; j++)
 	{
 		Aver_Useful_Count = 0;
 		for(int lj = 0; lj < 10; lj++)
@@ -487,7 +487,7 @@ void ImageProcessThread::depthTrans_FindLine(cv::Mat Transdepth ,int devcount)
 		{
 			m_DrawDistLine[devcount][j] = Lonest_dist;
 		}
-		main_DistPointsLine[devcount][j] = DEEPIMG_HEIGHT - (uint16_t)m_DrawDistLine[devcount][j]/5;
+		main_DistPointsLine[devcount][j-DRAWPOINT_START] = DEEPIMG_HEIGHT - (uint16_t)m_DrawDistLine[devcount][j]/5;
 		//printf("main_DistPointsLine[%d]==%d,m_DrawDistLine[%d]==%d\n",j,main_DistPointsLine[j],j,m_DrawDistLine[j]);
 	}
 }
@@ -548,10 +548,10 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 		{
 			//输出到rgb
 			//if(i <= 40)
-			if(i <= st_SysParam.PixHight_End)
+			if(i <= st_SysParam.stPerCammer[0].PixHight_End)
 				data_gray[j] = 0;
 			//if( i > 40 && j <= 112)
-			if( i > st_SysParam.PixHight_End && j <= st_SysParam.PixWidth_End)
+			if( i > st_SysParam.stPerCammer[0].PixHight_End && j <= st_SysParam.stPerCammer[0].PixWidth_End)
 				data_gray[j] = 0;
 		}
 	}
@@ -563,12 +563,12 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 	Mat abs_grad_x, abs_grad_y;
 
 	Mat mat_threshold;
-	double otsu_thresh_val = threshold(mat_gray, mat_threshold, st_SysParam.threshold_val, 255, CV_THRESH_BINARY);
+	double otsu_thresh_val = threshold(mat_gray, mat_threshold, st_SysParam.stPerCammer[0].threshold_val, 255, CV_THRESH_BINARY);
 	//threshold(grad, mat_threshold, 0, 255, CV_THRESH_OTSU + CV_THRESH_BINARY);
 	//############先开操作，去掉一些小的区域####################
 	//int Open_morphW = 3;
 	//int Open_morphH = 3;
-	Mat element = getStructuringElement(MORPH_RECT, Size(st_SysParam.MorphOpenSize, st_SysParam.MorphOpenSize));
+	Mat element = getStructuringElement(MORPH_RECT, Size(st_SysParam.stPerCammer[0].MorphOpenSize, st_SysParam.stPerCammer[0].MorphOpenSize));
 	morphologyEx(mat_threshold, mat_threshold, MORPH_OPEN, element);
 	char jpgfileopen[1024] = { 0 };
 	char morphopen[1024] = { 0 };
@@ -779,7 +779,7 @@ int ImageProcessThread::DeepImgFinds_write_rgb(Mat depthColor, Mat resized_color
 	#endif
 	if(depthColor.data != NULL )
 	{
-		cv::Rect rect(st_SysParam.PixWidth_End, st_SysParam.PixHight_End, depthColor.rows - st_SysParam.PixWidth_End, depthColor.cols - st_SysParam.PixHight_End);
+		cv::Rect rect(st_SysParam.stPerCammer[0].PixWidth_End, st_SysParam.stPerCammer[0].PixHight_End, depthColor.rows - st_SysParam.stPerCammer[0].PixWidth_End, depthColor.cols - st_SysParam.stPerCammer[0].PixHight_End);
 		//Mat imageROI = depthColor(rect);
 		g_cvOutimg = depthColor.clone();//imageROI.clone();//depthColor.clone();
 		emit EmitOutFrameMessage(&g_cvOutimg,0);
@@ -816,12 +816,12 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		Mat mat_blur;
 		//mat_blur = depth.clone();
 		#if DEEP_DISTANSLINE
-		depthTrans_BarrierLine(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth);
+		depthTrans_BarrierLine(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth,devcount);
 		depthTrans_FindLine(mat_blur, devcount);
-		GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.GussBlurSize, st_SysParam.GussBlurSize), 0, 0, BORDER_DEFAULT); 	
+		GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.stPerCammer[devcount].GussBlurSize, st_SysParam.stPerCammer[devcount].GussBlurSize), 0, 0, BORDER_DEFAULT); 	
 		#else
 		depthTransfer(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth);
-		GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.GussBlurSize, st_SysParam.GussBlurSize), 0, 0, BORDER_DEFAULT);		
+		GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.stPerCammer[devcount].GussBlurSize, st_SysParam.stPerCammer[devcount].GussBlurSize), 0, 0, BORDER_DEFAULT);		
 		#endif
 		#if USE_RGBIMG
 			cv::resize(color, resized_color, depth.size());
@@ -875,9 +875,9 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 				}else
 					circle(depthColor, P, 0, Scalar(0, 128, 128),2);
 			}
-			for (unsigned int j = 4; j < DEEPIMG_DRAWPOINT +4; j++)
+			for (unsigned int j = DRAWPOINT_START; j < DEEPIMG_DRAWPOINT +8; j++)
 			{
-				int y = main_DistPointsLine[devcount][j];
+				int y = main_DistPointsLine[devcount][j - DRAWPOINT_START];
 				Point Pdist = Point(j*10, y);
 				////circle(depthColor, Pdist, 0, Scalar(160, 32, 240),4);
 			}
@@ -906,8 +906,8 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		#if DEEP_DISTANSLINE
 		#else
 		//lxl add at 12-25 使用系统参数
-		DeepImgFinds_write_rgb(depthColor,resized_color, st_SysParam.MidBlurSize,
-								st_SysParam.MorphCloseSize, st_SysParam.MorphCloseSize);
+		DeepImgFinds_write_rgb(depthColor,resized_color, st_SysParam.stPerCammer[0].MidBlurSize,
+								st_SysParam.stPerCammer[0].MorphCloseSize, st_SysParam.stPerCammer[0].MorphCloseSize);
 		#endif
 	}
 	// do Registration
@@ -1073,7 +1073,7 @@ void ImageProcessThread::run()
 
 	FILE *filetmp;
     //const char* tempimg = "/home/apple/qt_prj/build-robot01-Desktop_Qt_5_10_1_GCC_64bit-Debug/template.yuv";
-    const char* tempimg = "./template.yuv";
+    const char* tempimg = "./template1.yuv";
 	filetmp = fopen( tempimg, "rb");
 	if (NULL == filetmp)
 	{
@@ -1089,7 +1089,89 @@ void ImageProcessThread::run()
 		cout << "fread_s filetmp ERR!!!" << endl;
         return ;
 	}
-	fclose(filetmp);	
+	fclose(filetmp);
+	MY_SLEEP_MS(10);
+	
+	const char* tempimg1 = "./template2.yuv";
+	filetmp = fopen( tempimg1, "rb");
+	if (NULL == filetmp)
+	{
+		printf("Error:Open tempimg file fail!\n");
+        qDebug("Error:Open tempimg file fail#####%s\n",tempimg1);
+        return ;
+	}
+	printf("fopen %s ok\n",tempimg1);
+	if (gm_width*gm_hight * 2 != fread(g_imgtempImgBuf_1, 1, gm_width*gm_hight*2, filetmp))
+	{
+		//提示文件读取错误  
+		fclose(filetmp);
+		cout << "fread_s filetmp ERR!!!" << endl;
+        return ;
+	}
+	fclose(filetmp);
+	MY_SLEEP_MS(10);
+	
+	const char* tempimg2 = "./template3.yuv";
+	filetmp = fopen( tempimg2, "rb");
+	if (NULL == filetmp)
+	{
+		printf("Error:Open tempimg file fail!\n");
+        qDebug("Error:Open tempimg file fail#####%s\n",tempimg2);
+        return ;
+	}
+	printf("fopen %s ok\n",tempimg2);
+	if (gm_width*gm_hight * 2 != fread(g_imgtempImgBuf_2, 1, gm_width*gm_hight*2, filetmp))
+	{
+		//提示文件读取错误  
+		fclose(filetmp);
+		cout << "fread_s filetmp ERR!!!" << endl;
+        return ;
+	}
+	fclose(filetmp);
+	MY_SLEEP_MS(10);
+	
+	const char* tempimg3 = "./template4.yuv";
+	filetmp = fopen( tempimg3, "rb");
+	if (NULL == filetmp)
+	{
+		printf("Error:Open tempimg file fail!\n");
+        qDebug("Error:Open tempimg file fail#####%s\n",tempimg3);
+        return ;
+	}
+	printf("fopen %s ok\n",tempimg3);
+	if (gm_width*gm_hight * 2 != fread(g_imgtempImgBuf_3, 1, gm_width*gm_hight*2, filetmp))
+	{
+		//提示文件读取错误  
+		fclose(filetmp);
+		cout << "fread_s filetmp ERR!!!" << endl;
+        return ;
+	}
+	fclose(filetmp);
+	MY_SLEEP_MS(10);
+	
+	const char* tempimg4 = "./template5.yuv";
+	filetmp = fopen( tempimg4, "rb");
+	if (NULL == filetmp)
+	{
+		printf("Error:Open tempimg file fail!\n");
+        qDebug("Error:Open tempimg file fail#####%s\n",tempimg4);
+        return ;
+	}
+	printf("fopen %s ok\n",tempimg4);
+	if (gm_width*gm_hight * 2 != fread(g_imgtempImgBuf_4, 1, gm_width*gm_hight*2, filetmp))
+	{
+		//提示文件读取错误  
+		fclose(filetmp);
+		cout << "fread_s filetmp ERR!!!" << endl;
+        return ;
+	}
+	fclose(filetmp);
+	MY_SLEEP_MS(10);
+	//每个模板图都采用初始模板
+	//memcpy(g_imgtempImgBuf_1, g_imgtempImgBuf_0, BUFF_SIZE);
+	//memcpy(g_imgtempImgBuf_2, g_imgtempImgBuf_0, BUFF_SIZE);
+	//memcpy(g_imgtempImgBuf_3, g_imgtempImgBuf_0, BUFF_SIZE);
+	//memcpy(g_imgtempImgBuf_4, g_imgtempImgBuf_0, BUFF_SIZE);
 
 	LOGD("=== Init lib");
 	ASSERT_OK(TYInitLib());
@@ -1133,9 +1215,9 @@ void ImageProcessThread::run()
 		ASSERT_OK(TYEnableComponents(cams[i].hDev, componentIDs));
 		#if 1
 	    // set cam_gain and laser_power
-	    ASSERT_OK(TYSetInt(cams[i].hDev, TY_COMPONENT_IR_CAM_LEFT, TY_INT_GAIN, st_SysParam.Gain_max));  //16/32/64/128/254  3~254
-		ASSERT_OK(TYSetInt(cams[i].hDev, TY_COMPONENT_IR_CAM_RIGHT, TY_INT_GAIN, st_SysParam.Gain_max)); //16/32/64/128/254
-		ASSERT_OK(TYSetInt(cams[i].hDev, TY_COMPONENT_LASER, TY_INT_LASER_POWER,st_SysParam.Gain_thold_max)); // 1~100
+	    ASSERT_OK(TYSetInt(cams[i].hDev, TY_COMPONENT_IR_CAM_LEFT, TY_INT_GAIN, st_SysParam.stPerCammer[0].Gain_max));  //16/32/64/128/254  3~254
+		ASSERT_OK(TYSetInt(cams[i].hDev, TY_COMPONENT_IR_CAM_RIGHT, TY_INT_GAIN, st_SysParam.stPerCammer[0].Gain_max)); //16/32/64/128/254
+		ASSERT_OK(TYSetInt(cams[i].hDev, TY_COMPONENT_LASER, TY_INT_LASER_POWER,st_SysParam.stPerCammer[0].Gain_thold_max)); // 1~100
 		
 		//get the histro 
 		ASSERT_OK(TYEnableComponents(cams[i].hDev, TY_COMPONENT_BRIGHT_HISTO));
@@ -1224,7 +1306,29 @@ void ImageProcessThread::run()
 			}
 			else //if(i == st_SysParam.CurrentCam)
 			{	//目前先处理选中的相机
-	            handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf_0 ,st_SysParam ,i);
+			if(0 == strcmp(cams[i].sn,st_SysParam.id1))
+				handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf_0 ,st_SysParam ,0);
+			else if(0 == strcmp(cams[i].sn,st_SysParam.id2))
+				handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf_1 ,st_SysParam ,1);
+			else if(0 == strcmp(cams[i].sn,st_SysParam.id3))
+				handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf_2 ,st_SysParam ,2);
+			else if(0 == strcmp(cams[i].sn,st_SysParam.id4))
+				handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf_3 ,st_SysParam ,3);
+			else if(0 == strcmp(cams[i].sn,st_SysParam.id5))
+				handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf_4 ,st_SysParam ,4);
+				
+			/*
+				if(0 == i)
+	            	handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf_0 ,st_SysParam ,i);
+				else if(1 == i)
+	            	handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf_1 ,st_SysParam ,i);
+				else if(2 == i)
+	            	handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf_2 ,st_SysParam ,i);
+				else if(3 == i)
+	            	handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf_3 ,st_SysParam ,i);
+				else if(4 == i)
+	            	handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf_4 ,st_SysParam ,i);
+			*/
 			}
 			//LOGD("Fetch frame sucess %d at cams[%d]", err,i);
 			if(g_IsTemp_btn >= 0)
@@ -1232,7 +1336,17 @@ void ImageProcessThread::run()
 				//Open_TempImg();
 				//for(int i = 0; i < MAX_DEVNUM; i++)
 				{	//哪个相机的模板换了就替换哪个buf
-					memcpy(g_imgtempImgBuf_0, g_tmpbuffer_0, BUFF_SIZE);
+					if(0 == g_IsTemp_btn)
+						memcpy(g_imgtempImgBuf_0, g_tmpbuffer_0, BUFF_SIZE);
+					else if(1 == g_IsTemp_btn)
+						memcpy(g_imgtempImgBuf_1, g_tmpbuffer_1, BUFF_SIZE);
+					else if(2 == g_IsTemp_btn)
+						memcpy(g_imgtempImgBuf_2, g_tmpbuffer_2, BUFF_SIZE);
+					else if(3 == g_IsTemp_btn)
+						memcpy(g_imgtempImgBuf_3, g_tmpbuffer_3, BUFF_SIZE);
+					else if(4 == g_IsTemp_btn)
+						memcpy(g_imgtempImgBuf_4, g_tmpbuffer_4, BUFF_SIZE);
+					LOGD("replace g_imgtempImgBuf_%d sucess",i);
 				}
 				g_IsTemp_btn  = -1;
 			}

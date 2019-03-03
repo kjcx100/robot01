@@ -321,7 +321,7 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	int PointsLine[MAX_DEVNUM][qPNum];
 	int DisPointsLine[MAX_DEVNUM][qPNum];	//由point转换为距离 dispoint = PointsLine/tan(x)
 	int DisLine[MAX_DEVNUM][qPNum];
-	for(int device = 0; device < MAX_DEVNUM -4 ;device++)
+	for(int device = 0; device < MAX_DEVNUM -1 ;device++)
 	{
 		#if DEEP_DISTANSLINE
 		for(int a = 0;a < qPNum; a++)
@@ -354,12 +354,27 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 		}
 		if(0 == device)
 		{
-			for(int a = 0;a <= qPNum; a++)
+			for(int a = 0;a <= halfqPNum; a++)
 			{
-				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*cos((128-a)*0.00873));
-				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*sin((128-a)*0.00873));
-
+				DrawPoint[device][a].setX(start_x + w/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[90-60-a]);
+				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[60+a]);
+				//DrawPoint[a].setX(start_x + w/2 - (DEEPIMG_HEIGHT)/4*SINX[90-60-a]);
+				//DrawPoint[a].setY(start_y + h/2 - (DEEPIMG_HEIGHT)/4*SINX[60+a]);
+				//painter.drawPoint(DrawPoint[a]);
+				//for test
+				//painter.drawPoint(QPoint(start_x + w/2 +100,start_y + h/2 + a+100));
+				//for test end
 			}
+			for(int a = halfqPNum;a <= qPNum; a++)
+			{
+				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[a - 30]);
+				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[120 - a]);
+				//DrawPoint[a].setX(start_x + w/2 + (DEEPIMG_HEIGHT)/4*SINX[a - 30]);
+				//DrawPoint[a].setY(start_y + h/2 - (DEEPIMG_HEIGHT)/4*SINX[120 - a]);
+				//painter.drawPoint(DrawPoint[a]);
+			}
+			DrawPoint[device][halfqPNum].setX(start_x + w/2);
+			DrawPoint[device][halfqPNum].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][halfqPNum])/2);
 		}
 		else if(1 == device)
 		{
@@ -423,7 +438,6 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
     pen.setWidth(2);
     pen.setColor(Qt::red);
     painter.setPen(pen);
-	/*
 	if(0)//	先不画红线--实际距离	for(int device = 0; device < MAX_DEVNUM -1 ;device++)
 	{
 		if(0 == device)
@@ -464,7 +478,6 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 				//painter.drawPoint(DrawPoint[a]);
 		}
 	}
-	*/
 }
 //画障碍物曲线，以画框中心为原点，极坐标的方式
 void MainWindow::drawBarrierLine(int start_x,int start_y,int w,int h)
