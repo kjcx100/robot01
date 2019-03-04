@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <iostream>
 
+#include "include/curl/curl.h"
+#include "include/json/json.h"
+
 #include <QSettings>
 #include <QTextCodec>
 #include <QtDebug>
@@ -53,6 +56,84 @@ float TANX[90] = {0.0175,0.0369,0.0524,0.0699,0.0875,0.1051,0.1228,0.1405,0.1584
 				1.0355,1.0724,1.1106,1.1503,1.1917,1.2349,1.2799,1.3270,1.3764,1.4281,1.4826,1.5399,1.6000,1.6643,1.7320,
 				1.8040,1.8807,1.9626,2.0503,2.1445,2.2460,2.3558,2.4750,2.6051,2.7475,2.9042,3.0777,3.2708,3.4874,3.7320,
 				4.0108,4.3315,4.7046,5.1445,5.6713,6.3137,7.1154,8.1444,9.5144,11.430,11.430,11.430,11.430,11.430,11.430};
+//callback function
+size_t post_write_data(void *ptr, size_t size, size_t nmemb, void *stream) 
+{
+    std::string data((const char*) ptr, (size_t) size * nmemb);
+
+    std::cout << data << std::endl;
+
+    return size * nmemb;
+}
+
+//POST json
+void post_in_curl(std::string json_str)
+{
+    CURL *curl= curl_easy_init();
+    CURLcode res;
+    if (NULL==curl)
+    {
+    	std::cout << "init curl error" << std::endl;
+        return;
+    }
+    std::string strUrl="http://192.168.31.200:8080/otherSensorData";
+    std::string postret;
+    std::string strPostData = json_str;
+    curl_easy_setopt(curl,CURLOPT_URL,strUrl.c_str());
+    curl_easy_setopt(curl,CURLOPT_POST, 1);
+    curl_easy_setopt(curl,CURLOPT_WRITEDATA,&postret);
+    curl_easy_setopt(curl,CURLOPT_WRITEFUNCTION, post_write_data);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, strPostData.c_str());
+    res = curl_easy_perform(curl);
+    
+    /* Check for errors */ 
+    if(res != CURLE_OK)
+    fprintf(stderr, "curl_easy_perform() failed: %s\n",curl_easy_strerror(res));
+
+    /* always cleanup */ 
+    curl_easy_cleanup(curl);
+}
+
+void post_othersensor_data( uint16_t* data)
+{
+	Json::Value item;
+	Json::Value arrayObj;
+
+	double x,y,z,qx,qy,qz,qw;
+	double angle;
+	float rx[CIRCLE_NUM] = {1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5,1.5};
+	float ry[CIRCLE_NUM] = {0,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5};
+	float px[CIRCLE_NUM],py[CIRCLE_NUM],pz[CIRCLE_NUM];
+	int i=0;
+	float distance = 0;
+	std::string out_str;
+	
+	for(i=0;i < CIRCLE_NUM; i++)
+	{
+		//每度一个点，从0度开始到359度
+		distance = data[i];//(data[i]/cos((3.14159*i)/180))/1000.0;
+		rx[i] = distance * cos((3.14159*i)/180);
+		ry[i] = distance * sin((3.14159*i)/180);
+	
+		px[i] = rx[i];
+		py[i] = ry[i];
+		pz[i] = 0;
+		if(data[i] < 3000)
+		{
+			item["x"] = ((int)(px[i]*100))/100.0;
+			item["y"] = ((int)(py[i]*100))/100.0;
+			item["z"] = ((int)(pz[i]*100))/100.0;
+			arrayObj.append(item);
+		}
+	}
+
+	out_str = arrayObj.toStyledString();
+
+	out_str = "msg=" + out_str;
+
+	post_in_curl(out_str);
+}
+
 
 ImageProcessThread m_ImageProcessThread;
 
@@ -260,6 +341,7 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	GetCammerSysParam(&st_SysParam);
 	int MIDRECT_DRAW_LINE = 3;
 	const int Min_paintLen = 80;
+	uint16_t Http_send_Data[CIRCLE_NUM];
 	
 	    // 创建画刷
     //QBrush brush(QColor(0, 0, 0), Qt::SolidPattern);
@@ -321,9 +403,15 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	int PointsLine[MAX_DEVNUM][qPNum];
 	int DisPointsLine[MAX_DEVNUM][qPNum];	//由point转换为距离 dispoint = PointsLine/tan(x)
 	int DisLine[MAX_DEVNUM][qPNum];
-	for(int device = 0; device < MAX_DEVNUM -4 ;device++)
+	for(int device = 0; device < MAX_DEVNUM -1 ;device++)
 	{
 		#if DEEP_DISTANSLINE
+		//1和5中取最大值
+		for(int a = 0;a < qPNum; a++)
+		{
+			if(main_DistPointsLine[4][a] > main_DistPointsLine[0][a])
+				main_DistPointsLine[0][a] = main_DistPointsLine[4][a];
+		}
 		for(int a = 0;a < qPNum; a++)
 		{
 			PointsLine[device][a] = main_DistPointsLine[device][a];
@@ -356,55 +444,38 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 		{
 			for(int a = 0;a <= qPNum; a++)
 			{
-				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*cos((128-a)*0.00873));
-				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*sin((128-a)*0.00873));
-
+				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*cos((118-a)*0.01745));
+				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*sin((118-a)*0.01745));
+				
+				//DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT)/4*cos((128-a)*0.01745));
+				//DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT)/4*sin((128-a)*0.01745));
 			}
 		}
 		else if(1 == device)
 		{
-			for(int a = 0;a <= halfqPNum; a++)
+			for(int a = 0;a <= qPNum; a++)
 			{
-				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[60+a]);
-				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[30-a]);
+				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*cos((62-a)*0.01745));
+				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*sin((62-a)*0.01745));
 			}
-			for(int a = halfqPNum;a <= qPNum; a++)
-			{
-				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[120 - a]);
-				DrawPoint[device][a].setY(start_y + h/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[a - 30]);
-			}
-			DrawPoint[device][halfqPNum].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][halfqPNum])/2);
-			DrawPoint[device][halfqPNum].setY(start_y + h/2);
+
 		}
 		else if(2 == device)
 		{
-			for(int a = 0;a <= halfqPNum; a++)
+			for(int a = 0;a <= qPNum; a++)
 			{
-				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[90-60-a]);
-				DrawPoint[device][a].setY(start_y + h/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[60+a]);
+				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*cos((298-a)*0.01745));
+				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*sin((298-a)*0.01745));
 			}
-			for(int a = halfqPNum;a <= qPNum; a++)
-			{
-				DrawPoint[device][a].setX(start_x + w/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[a - 30]);
-				DrawPoint[device][a].setY(start_y + h/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[120 - a]);
-			}
-			DrawPoint[device][halfqPNum].setX(start_x + w/2);
-			DrawPoint[device][halfqPNum].setY(start_y + h/2 + (DEEPIMG_HEIGHT - PointsLine[device][halfqPNum])/2);
 		}
 		else if(3 == device)
 		{
-			for(int a = 0;a <= halfqPNum; a++)
+			for(int a = 0;a <= qPNum; a++)
 			{
-				DrawPoint[device][a].setX(start_x + w/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[60+a]);
-				DrawPoint[device][a].setY(start_y + h/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[30-a]);
+				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*cos((174-a)*0.01745));
+				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*sin((174-a)*0.01745));
 			}
-			for(int a = halfqPNum;a <= qPNum; a++)
-			{
-				DrawPoint[device][a].setX(start_x + w/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[120 - a]);
-				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*SINX[a - 30]);
-			}
-			DrawPoint[device][halfqPNum].setX(start_x + w/2 - (DEEPIMG_HEIGHT - PointsLine[device][halfqPNum])/2);
-			DrawPoint[device][halfqPNum].setY(start_y + h/2);
+
 		}
 
 		for(int a = 0;a < qPNum -1; a++)
@@ -465,6 +536,26 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 		}
 	}
 	*/
+////发送http-post
+	//1和5中取最大值
+	for(int a = 0;a < qPNum; a++)
+	{
+		if(DisLine[4][a] > DisLine[0][a])
+			DisLine[0][a] = DisLine[4][a];
+	}
+	for(int a = 0;a < CIRCLE_NUM; a++)
+	{
+		Http_send_Data[a] = 3500;
+	}
+	for(int data_i = 0; data_i < (MAX_DEVNUM -1) ;data_i++)
+	{
+		for(int a = 0;a < qPNum; a++)
+		{
+			if(PointsLine[data_i][a] > Min_paintLen && PointsLine[data_i][a+1] > Min_paintLen)
+				Http_send_Data[data_i*qPNum + a] = DisLine[data_i][a];
+		}
+	}
+	post_othersensor_data(Http_send_Data);
 }
 //画障碍物曲线，以画框中心为原点，极坐标的方式
 void MainWindow::drawBarrierLine(int start_x,int start_y,int w,int h)

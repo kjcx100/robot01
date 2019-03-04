@@ -9,6 +9,7 @@
 #define 	DEEP_DISTANSLINE   	1
 #define 	MAX_DEVNUM	5
 #define BUFF_SIZE  1024*1024
+#define		CIRCLE_NUM		360
 
 
 typedef struct _CAMMER_CONF_S			// size = 64

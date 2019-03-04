@@ -23,10 +23,14 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 
-INCLUDEPATH += /usr/include/opencv \
-            /usr/include/opencv2  \
+INCLUDEPATH += /usr/include/opencv  \
+            /usr/include/opencv2
+ #           /usr/include/curl/      \
+ #           /usr/include/jsoncpp/json/
 
-LIBS += -L /usr/local/lib/libopencv_*
+LIBS += -L /usr/local/lib/libopencv_* \
+        /usr/lib/x86_64-linux-gnu/ -lcurl -ljsoncpp
+ #       /usr/lib/x86_64-linux-gnu/lcurl
 
 FORMS += \
         mainwindow.ui
