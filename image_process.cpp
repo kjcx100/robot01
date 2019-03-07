@@ -4,6 +4,8 @@
 #include <iostream>
 #include <QFontDatabase>
 #include <QDebug>
+#include <qmath.h>
+
 
 #include "include/image_process.h"
 #include "../common/common.hpp"
@@ -221,6 +223,21 @@ void f_Trans2D(cv::Mat depth,uint8_t* r_data,cv::Mat* p_2D_gray)
 	}
 	*p_2D_gray = cv::Mat(450, 565, CV_8U, dst_data);
 }
+void InsertSort(uint16_t  *a, uint16_t n) {
+    int tmp = 0;
+    for (int i = 1; i < n; i++) {
+        int j = i - 1;
+        if (a[i] < a[j]) {
+            tmp = a[i];
+            a[i] = a[j];
+            while (tmp < a[j-1]) {
+                a[j] = a[j-1];
+                j--;
+            }
+            a[j] = tmp;
+        }
+    }
+}
 
 bool ImageProcessThread::verifySizes(cv::Rect mr) {
 	// Set a min and max area. All other patchs are discarded
@@ -434,7 +451,8 @@ void ImageProcessThread::depthTrans_FindLine(cv::Mat Transdepth ,int devcount)
 	int Aver_Useful_Count = 0;	//10个平均点中有用的个数
 	uint16_t* src_data;
 	uint16_t temp_dist = 0;
-	const uint16_t Lonest_dist = 2200;
+	const uint16_t Lonest_dist = 2100;
+	uint16_t store_dis[10] = {0};
 	CAMMER_PARA_S st_SysParam;
 	GetCammerSysParam(&st_SysParam);
 	
@@ -453,13 +471,14 @@ void ImageProcessThread::depthTrans_FindLine(cv::Mat Transdepth ,int devcount)
 				{
 					Has_distrans = 1;
 					m_DistansLine[devcount][j] = src_data[j + ii*DEEPIMG_WIDTH];
-					m_DistansLine[devcount][j] = m_DistansLine[devcount][j]*SINX[(int)((DEEPIMG_HEIGHT - ii)/10 + st_SysParam.stPerCammer[devcount].EditVer_Angl-23)];
+					m_DistansLine[devcount][j] = m_DistansLine[devcount][j]*sin((int)((DEEPIMG_HEIGHT - ii)/10 + st_SysParam.stPerCammer[devcount].EditVer_Angl-23));
 				}
 			}
 		}
 		if(0 == Has_distrans)
 			m_DistansLine[devcount][j] = Lonest_dist;
-		//printf("m_DistansLine[%d]==%d\n",j,m_DistansLine[j]);
+		//if(0 == devcount)
+		//	printf("m_DistansLine[%d]==%d\n",j,m_DistansLine[devcount][j]);
 	}
 	for (int j = 40; j < DEEPIMG_WIDTH - 2; j++)
 	{
@@ -470,6 +489,7 @@ void ImageProcessThread::depthTrans_FindLine(cv::Mat Transdepth ,int devcount)
 	}
 	for (int j = DRAWPOINT_START; j < DEEPIMG_DRAWPOINT +8; j++)
 	{
+	#if 0
 		Aver_Useful_Count = 0;
 		for(int lj = 0; lj < 10; lj++)
 		{
@@ -483,12 +503,24 @@ void ImageProcessThread::depthTrans_FindLine(cv::Mat Transdepth ,int devcount)
 			m_DrawDistLine[devcount][j] = m_DrawDistLine[devcount][j]/Aver_Useful_Count;
 		else
 			m_DrawDistLine[devcount][j] = Lonest_dist;
+
+	#else
+	//中值排序，取中间值
+		for(int lj = 0; lj < 10; lj++)
+		{
+			store_dis[lj] = m_DistansLine[devcount][j*10 + lj];
+		}
+		InsertSort(store_dis , 10);
+		m_DrawDistLine[devcount][j] = store_dis[5];
+	#endif
+		
 		if(m_DrawDistLine[devcount][j] > Lonest_dist || m_DrawDistLine[devcount][j] < 300)
 		{
 			m_DrawDistLine[devcount][j] = Lonest_dist;
 		}
-		main_DistPointsLine[devcount][j-DRAWPOINT_START] = DEEPIMG_HEIGHT - (uint16_t)m_DrawDistLine[devcount][j]/5;
-		//printf("main_DistPointsLine[%d]==%d,m_DrawDistLine[%d]==%d\n",j,main_DistPointsLine[j],j,m_DrawDistLine[j]);
+		main_DistPointsLine[devcount][j-DRAWPOINT_START] = m_DrawDistLine[devcount][j]/10;//转为1cm	//DEEPIMG_HEIGHT - (uint16_t)m_DrawDistLine[devcount][j]/5;
+		//if(0 == devcount)
+		//	printf("main_DistPointsLine[%d]==%d\n",j-8,main_DistPointsLine[devcount][j-DRAWPOINT_START]);
 	}
 }
 
@@ -816,9 +848,24 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		Mat mat_blur;
 		//mat_blur = depth.clone();
 		#if DEEP_DISTANSLINE
-		depthTrans_BarrierLine(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth,devcount);
+		//*********////////////////
+		//以下，不滤波版本
+		//depthTrans_BarrierLine(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth,devcount);
+		//depthTrans_FindLine(mat_blur, devcount);
+		//GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.stPerCammer[devcount].GussBlurSize, st_SysParam.stPerCammer[devcount].GussBlurSize), 0, 0, BORDER_DEFAULT); 	
+		////******************///////////////
+		//以下，先滤波，不行
+		//GaussianBlur(depth, newDepth, Size(st_SysParam.stPerCammer[devcount].GussBlurSize, st_SysParam.stPerCammer[devcount].GussBlurSize), 0, 0, BORDER_DEFAULT);			
+		//depthTrans_BarrierLine(newDepth, (uint16_t*)tempdata, &mat_blur, &blackDepth,devcount);
+		//GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.stPerCammer[devcount].GussBlurSize, st_SysParam.stPerCammer[devcount].GussBlurSize), 0, 0, BORDER_DEFAULT);			
+		//depthTrans_FindLine(TransDepth, devcount);
+		//*******************//
+		//以下，先中值，可以有效的去除椒盐噪声。
+		medianBlur(depth,newDepth,st_SysParam.stPerCammer[devcount].MidBlurSize);
+		depthTrans_BarrierLine(newDepth, (uint16_t*)tempdata, &mat_blur, &blackDepth,devcount);
 		depthTrans_FindLine(mat_blur, devcount);
 		GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.stPerCammer[devcount].GussBlurSize, st_SysParam.stPerCammer[devcount].GussBlurSize), 0, 0, BORDER_DEFAULT); 	
+		
 		#else
 		depthTransfer(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth);
 		GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.stPerCammer[devcount].GussBlurSize, st_SysParam.stPerCammer[devcount].GussBlurSize), 0, 0, BORDER_DEFAULT);		
@@ -877,9 +924,9 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 			}
 			for (unsigned int j = DRAWPOINT_START; j < DEEPIMG_DRAWPOINT +8; j++)
 			{
-				int y = main_DistPointsLine[devcount][j - DRAWPOINT_START];
+				int y =DEEPIMG_HEIGHT -  main_DistPointsLine[devcount][j - DRAWPOINT_START]*2;
 				Point Pdist = Point(j*10, y);
-				////circle(depthColor, Pdist, 0, Scalar(160, 32, 240),4);
+				circle(depthColor, Pdist, 0, Scalar(160, 32, 240),4);
 			}
 			#endif
 			//printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);

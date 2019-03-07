@@ -76,7 +76,7 @@ void post_in_curl(std::string json_str)
     	std::cout << "init curl error" << std::endl;
         return;
     }
-    std::string strUrl="http://192.168.31.200:8080/otherSensorData";
+    std::string strUrl="http://192.168.31.220:8080/otherSensorData";
     std::string postret;
     std::string strPostData = json_str;
     curl_easy_setopt(curl,CURLOPT_URL,strUrl.c_str());
@@ -111,7 +111,7 @@ void post_othersensor_data( uint16_t* data)
 	for(i=0;i < CIRCLE_NUM; i++)
 	{
 		//每度一个点，从0度开始到359度
-		distance = data[i];//(data[i]/cos((3.14159*i)/180))/1000.0;
+        distance = (data[i]/100.0) + 0.3;//(data[i]/cos((3.14159*i)/180))/1000.0;
 		rx[i] = distance * cos((3.14159*i)/180);
 		ry[i] = distance * sin((3.14159*i)/180);
 	
@@ -120,17 +120,19 @@ void post_othersensor_data( uint16_t* data)
 		pz[i] = 0;
 		if(data[i] < 3000)
 		{
+			printf("data[%d]=%d ",i,data[i]);
 			item["x"] = ((int)(px[i]*100))/100.0;
 			item["y"] = ((int)(py[i]*100))/100.0;
 			item["z"] = ((int)(pz[i]*100))/100.0;
 			arrayObj.append(item);
 		}
 	}
-
+	printf("\n");
 	out_str = arrayObj.toStyledString();
 
 	out_str = "msg=" + out_str;
-
+	//std::cout << "out_str:" << out_str << endl;
+	
 	post_in_curl(out_str);
 }
 
@@ -340,7 +342,8 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	CAMMER_PARA_S st_SysParam;
 	GetCammerSysParam(&st_SysParam);
 	int MIDRECT_DRAW_LINE = 3;
-	const int Min_paintLen = 80;
+	const int Min_paintLen = 40;	
+	const int Max_paintLen = 200;
 	uint16_t Http_send_Data[CIRCLE_NUM];
 	
 	    // 创建画刷
@@ -406,10 +409,10 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 	for(int device = 0; device < MAX_DEVNUM -1 ;device++)
 	{
 		#if DEEP_DISTANSLINE
-		//1和5中取最大值
+		//1和5中取最xiao值
 		for(int a = 0;a < qPNum; a++)
 		{
-			if(main_DistPointsLine[4][a] > main_DistPointsLine[0][a])
+			if(main_DistPointsLine[4][a] < main_DistPointsLine[0][a])
 				main_DistPointsLine[0][a] = main_DistPointsLine[4][a];
 		}
 		for(int a = 0;a < qPNum; a++)
@@ -433,19 +436,30 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 				}
 			}
 		}
-		for(int a = 0;a < qPNum; a++)
-		{
-			//printf("PointsLine[device][a]==%d",PointsLine[device][a]);
-			DisLine[device][a] = st_SysParam.stPerCammer[device].Edit_instalHeight*TANX[(int)((DEEPIMG_HEIGHT - PointsLine[device][a])/10 + st_SysParam.stPerCammer[device].EditVer_Angl-23)];
-			//if(DisLine[a] > 200)
-			//	DisLine[a] = 200;
+		{	//实际距离就是PointsLine 
+			for(int a = 0;a < qPNum; a++)
+			{
+				//printf("PointsLine[device][a]==%d",PointsLine[device][a]);
+				DisLine[device][a] = PointsLine[device][a];//st_SysParam.stPerCammer[device].Edit_instalHeight*TANX[(int)((DEEPIMG_HEIGHT - PointsLine[device][a])/10 + st_SysParam.stPerCammer[device].EditVer_Angl-23)];
+				//if(DisLine[a] > 200)
+				//	DisLine[a] = 200;
+			}
 		}
+
+	}
+	////画角度变换后的线//////////
+	//重新设置画笔
+    pen.setWidth(2);
+    pen.setColor(Qt::red);
+    painter.setPen(pen);
+	for(int device = 0; device < MAX_DEVNUM -1 ;device++)
+	{
 		if(0 == device)
 		{
 			for(int a = 0;a <= qPNum; a++)
 			{
-				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*cos((118-a)*0.01745));
-				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*sin((118-a)*0.01745));
+				DrawPoint[device][a].setX(start_x + w/2 + DisLine[device][a]*cos((118-a)*0.01745));
+				DrawPoint[device][a].setY(start_y + h/2 - DisLine[device][a]*sin((118-a)*0.01745));
 				
 				//DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT)/4*cos((128-a)*0.01745));
 				//DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT)/4*sin((128-a)*0.01745));
@@ -455,8 +469,8 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 		{
 			for(int a = 0;a <= qPNum; a++)
 			{
-				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*cos((62-a)*0.01745));
-				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*sin((62-a)*0.01745));
+				DrawPoint[device][a].setX(start_x + w/2 + DisLine[device][a]*cos((62-a)*0.01745));
+				DrawPoint[device][a].setY(start_y + h/2 - DisLine[device][a]*sin((62-a)*0.01745));
 			}
 
 		}
@@ -464,95 +478,88 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 		{
 			for(int a = 0;a <= qPNum; a++)
 			{
-				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*cos((298-a)*0.01745));
-				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*sin((298-a)*0.01745));
+				DrawPoint[device][a].setX(start_x + w/2 + DisLine[device][a]*cos((298-a)*0.01745));
+				DrawPoint[device][a].setY(start_y + h/2 - DisLine[device][a]*sin((298-a)*0.01745));
 			}
 		}
 		else if(3 == device)
 		{
 			for(int a = 0;a <= qPNum; a++)
 			{
-				DrawPoint[device][a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - PointsLine[device][a])/2*cos((174-a)*0.01745));
-				DrawPoint[device][a].setY(start_y + h/2 - (DEEPIMG_HEIGHT - PointsLine[device][a])/2*sin((174-a)*0.01745));
+				DrawPoint[device][a].setX(start_x + w/2 + DisLine[device][a]*cos((174-a)*0.01745));
+				DrawPoint[device][a].setY(start_y + h/2 - DisLine[device][a]*sin((174-a)*0.01745));
 			}
 
 		}
-
 		for(int a = 0;a < qPNum -1; a++)
 		{
-			if(PointsLine[device][a] > Min_paintLen && PointsLine[device][a+1] > Min_paintLen)
-				painter.drawLine(DrawPoint[device][a], DrawPoint[device][a+1]);
-				//painter.drawPoint(DrawPoint[a]);
-			//QPoint qPLine;
-			//qPLine.setX(start_x + w/2 +a);
-			//qPLine.setY(start_y + h/2 - PointsLine[a]);
-			//painter.drawPoint(qPLine);
-		}
-	}
-	////画角度变换后的线//////////
-	//重新设置画笔
-    pen.setWidth(2);
-    pen.setColor(Qt::red);
-    painter.setPen(pen);
-	/*
-	if(0)//	先不画红线--实际距离	for(int device = 0; device < MAX_DEVNUM -1 ;device++)
-	{
-		if(0 == device)
-		{
-			#if DEEP_DISTANSLINE
-			for(int a = 0;a <= halfqPNum; a++)
-			{
-				DrawPoint[device][a].setX(start_x + w/2 - (DisLine[device][a])*SINX[90-60-a]);
-				DrawPoint[device][a].setY(start_y + h/2 - (DisLine[device][a])*SINX[60+a]);
-			}
-			for(int a = halfqPNum;a <= qPNum; a++)
-			{
-				DrawPoint[device][a].setX(start_x + w/2 + (DisLine[device][a])*SINX[a - 30]);
-				DrawPoint[device][a].setY(start_y + h/2 - (DisLine[device][a])*SINX[120 - a]);
-			}
-			DrawPoint[device][halfqPNum].setX(start_x + w/2);
-			DrawPoint[device][halfqPNum].setY(start_y + h/2 - (DisLine[device][halfqPNum]));
-			#else
-			for(int a = 0;a <= halfqPNum; a++)
-			{
-				DrawPoint[device][a].setX(start_x + w/2 - (DisLine[device][a])*2*SINX[90-60-a]);
-				DrawPoint[device][a].setY(start_y + h/2 - (DisLine[device][a])*2*SINX[60+a]);
-			}
-			for(int a = halfqPNum;a <= qPNum; a++)
-			{
-				//DrawPoint[a].setX(start_x + w/2 + (DEEPIMG_HEIGHT - DisLine[a])/2*SINX[a - 30]);
-				DrawPoint[device][a].setX(start_x + w/2 + (DisLine[device][a])*2*SINX[a - 30]);
-				DrawPoint[device][a].setY(start_y + h/2 - (DisLine[device][a])*2*SINX[120 - a]);
-			}
-			DrawPoint[device][halfqPNum].setX(start_x + w/2);
-			DrawPoint[device][halfqPNum].setY(start_y + h/2 - (DisLine[device][halfqPNum])*2);
-			#endif
-		}
-		for(int a = 0;a < qPNum -1; a++)
-		{
-			if(PointsLine[device][a] > Min_paintLen && PointsLine[device][a+1] > Min_paintLen)
+			//if(DisLine[device][a] < 220 && DisLine[device][a+1] < 220)
+			if(DisLine[device][a] > Min_paintLen && DisLine[device][a] < Max_paintLen
+				&& DisLine[device][a+1] > Min_paintLen && DisLine[device][a+1] < Max_paintLen)
 				painter.drawLine(DrawPoint[device][a], DrawPoint[device][a+1]);
 				//painter.drawPoint(DrawPoint[a]);
 		}
 	}
-	*/
 ////发送http-post
-	//1和5中取最大值
-	for(int a = 0;a < qPNum; a++)
-	{
-		if(DisLine[4][a] > DisLine[0][a])
-			DisLine[0][a] = DisLine[4][a];
-	}
+	//1和5中取最xiao值
+	//for(int a = 0;a < qPNum; a++)
+	//{
+	//	if(DisLine[4][a] < DisLine[0][a])
+	//		DisLine[0][a] = DisLine[4][a];
+	//} 
 	for(int a = 0;a < CIRCLE_NUM; a++)
 	{
 		Http_send_Data[a] = 3500;
 	}
 	for(int data_i = 0; data_i < (MAX_DEVNUM -1) ;data_i++)
 	{
-		for(int a = 0;a < qPNum; a++)
+		if(0 == data_i)
 		{
-			if(PointsLine[data_i][a] > Min_paintLen && PointsLine[data_i][a+1] > Min_paintLen)
-				Http_send_Data[data_i*qPNum + a] = DisLine[data_i][a];
+			for(int a = 0;a < halfqPNum; a++)
+			{
+				if(DisLine[data_i][halfqPNum -a] > Min_paintLen && DisLine[data_i][halfqPNum -a] < Max_paintLen)
+				{
+					Http_send_Data[a] = DisLine[data_i][halfqPNum -a];
+				}
+			}
+			for(int a = halfqPNum;a < qPNum; a++)
+			{
+				if(DisLine[data_i][a] > Min_paintLen && DisLine[data_i][a] < Max_paintLen)
+				{
+					Http_send_Data[CIRCLE_NUM + halfqPNum - a] = DisLine[data_i][a];
+				}
+				//printf("DisLine[%d]==%d ",a,DisLine[data_i][a]);
+			}
+		}else if(3 == data_i)
+		{
+			for(int a = 0;a < qPNum; a++)
+			{
+				if(DisLine[data_i][qPNum -a] > Min_paintLen && DisLine[data_i][qPNum -a] < Max_paintLen)
+				{
+					Http_send_Data[halfqPNum + a] = DisLine[data_i][qPNum -a];
+					//Http_send_Data[CIRCLE_NUM - halfqPNum + a] = DisLine[data_i][qPNum -a];
+				}
+			}
+		}else if(2 == data_i)
+		{
+			for(int a = 0;a < qPNum; a++)
+			{
+				if(DisLine[data_i][qPNum -a] > Min_paintLen && DisLine[data_i][qPNum -a] < Max_paintLen)
+				{
+					Http_send_Data[180 - halfqPNum + a] = DisLine[data_i][qPNum -a];
+					//Http_send_Data[CIRCLE_NUM - halfqPNum + a] = DisLine[data_i][qPNum -a];
+				}
+			}
+		}else if(1 == data_i)
+		{
+			for(int a = 0;a < qPNum; a++)
+			{
+				if(DisLine[data_i][qPNum -a] > Min_paintLen && DisLine[data_i][qPNum -a] < Max_paintLen)
+				{
+					Http_send_Data[CIRCLE_NUM - halfqPNum - qPNum + a] = DisLine[data_i][qPNum -a];
+					//Http_send_Data[CIRCLE_NUM - halfqPNum + a] = DisLine[data_i][qPNum -a];
+				}
+			}
 		}
 	}
 	post_othersensor_data(Http_send_Data);
