@@ -6,3 +6,5 @@ robot01_imgTrans
 robot01.pro.user
 *.user
 *.user
+camer-obs-lib/libs/libcamera-obs.a
+camera-obs/build/libcamera-obs.so

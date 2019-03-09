@@ -16,6 +16,9 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "include/image_process.h"
+
+#include "ddsothersensordata.h"
+
 static int Timer_Count = 0;
 
 extern cv::Mat g_cvimg;
@@ -37,6 +40,8 @@ extern int gm_hight ;
 extern volatile bool exit_main;
 extern volatile bool save_frame;
 extern volatile bool save_rect_color;
+extern uint16_t g_Http_send_Data[CIRCLE_NUM];
+
 
 QImage		   g_VideoImage;
 QImage		   g_VideoImageOut;
@@ -44,6 +49,8 @@ int main_PointsLine[MAX_DEVNUM][DEEPIMG_WIDTH];
 int main_DistPointsLine[MAX_DEVNUM][DEEPIMG_DRAWPOINT];
 
 int g_is_point_OK = 0;
+int g_is_postdata_OK = 0;
+
 float SINX[90] = {0.0175,0.0349,0.0523,0.0698,0.0872,0.1045,0.1287,0.1392,0.1564,0.1737,0.1908,0.2079,0.2250,0.2419,0.2589,
 				0.2756,0.2924,0.3090,0.3256,0.3420,0.3584,0.3746,0.3907,0.4067,0.4226,0.4384,0.4540,0.4695,0.4848,0.5000,
 				0.5151,0.5300,0.5446,0.5600,0.5736,0.5878,0.6018,0.6157,0.6293,0.6428,0.6560,0.6691,0.6820,0.6747,0.7071,
@@ -187,7 +194,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	connect(&m_ImageProcessThread, SIGNAL(EmitFrameMessage(cv::Mat*, int)), this, SLOT(EmitFrameMessage(cv::Mat*, int)));
 	connect(&m_ImageProcessThread, SIGNAL(EmitOutFrameMessage(cv::Mat*, int)), this, SLOT(EmitOutFrameMessage(cv::Mat*, int)));
 	connect(&m_ImageProcessThread, SIGNAL(EmitRawTempMessage(cv::Mat*, int)), this, SLOT(EmitRawTempMessage(cv::Mat*, int)));
-
+	//
 
 }
 void MainWindow::paintEvent(QPaintEvent *)
@@ -562,7 +569,10 @@ void MainWindow::drawRectInPos(int start_x,int start_y,int w,int h)
 			}
 		}
 	}
-	post_othersensor_data(Http_send_Data);
+	//post_othersensor_data(Http_send_Data);
+	memcpy(g_Http_send_Data,Http_send_Data, sizeof(Http_send_Data));
+	g_is_postdata_OK = 1;
+    //sleep(1);
 }
 //画障碍物曲线，以画框中心为原点，极坐标的方式
 void MainWindow::drawBarrierLine(int start_x,int start_y,int w,int h)

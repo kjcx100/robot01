@@ -1,0 +1,244 @@
+module SkyworthMsgs {
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::EdgePolorPoint"
+    struct EdgePolorPoint {
+        float angle;
+        float distance;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::EdgeXyzPoint"
+    struct EdgeXyzPoint {
+        float x;
+        float y;
+	float z;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::DestXyzPoint"
+    struct DestXyzPoint {
+        float x;
+        float y;
+	float z;
+	float angle;
+    };
+
+    typedef EdgePolorPoint EdgePolorPointList[360];	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::DepthEdgeData"
+    //深度边缘数据  
+    struct DepthEdgeData {
+        EdgePolorPointList pointList;
+        //typedef EdgePolorPoint depthEdgeDataList[360];
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::UltraTouchData"
+    //超声、触边边缘数据  
+    struct UltraTouchData {
+        EdgePolorPointList pointList;
+        //Message::EdgePolorPoint ultraTouchDataList[360];
+    };
+	
+    typedef char RgbPicData[320*240*3];
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::RgbPic"
+    //RGB图片
+    struct RgbPic {
+        RgbPicData data;
+        //char rgbPicData[320*240*3];
+    };
+
+    typedef EdgeXyzPoint EdgeXyzPointList[360];	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::ObsData"
+    //避障图层数据
+    struct ObsData {
+        EdgeXyzPointList pointList;
+        //EdgeXyzPoint obsDataList[360];
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::CleanerStatus"
+    //清洁头状态
+    struct CleanerStatus {
+        short status;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::CleanerCommand"
+    //清洁电机控制命令
+    struct CleanerCommand {
+        string cleanType;
+        char cleanCommand;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::ElecQuantity"
+    //电量数据
+    struct ElecQuantity {
+        string batteryType;
+        float quantity;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::EmgStop"
+    //急停命令
+    struct EmgStop {
+        char emgStopCommand;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::SlamStatus"
+    //建图导航状态
+    struct SlamStatus {
+        string statusType;
+        short status;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::SlamCommand"
+    //建图导航控制命令
+    struct SlamCommand {
+        string commandType;
+        char command;
+	float distance;
+	float angle;
+	DestXyzPoint destPoint;
+    };
+	
+
+    //typedef EdgeXyzPoint EdgeXyzPointList[360];
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::SlamInteStatus"
+    //导航中断状态
+    struct SlamInteStatus {
+	string statusType;
+	char status;
+	float machingDegree;
+        EdgeXyzPointList obsData;
+	//EdgeXyzPoint obsDataList[360];
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::SlamInteCommand"
+    //导航中断后命令
+    struct SlamInteCommand {
+        string commandType;
+        char command;
+        DestXyzPoint destPoint;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::PatrolStatus"
+    //巡逻导航控制状态
+    struct PatrolStatus {
+        string statusType;
+	char status;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::PatrolCommand"
+    //巡逻导航控制命令
+    struct PatrolCommand {
+        string commandType;
+	char command;
+	DestXyzPoint destPoint;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::CleanStatus"
+    //清洁自由控制状态
+    struct CleanStatus {
+        string statusType;
+	char status;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::CleanCommand"
+    //清洁自由控制命令
+    struct CleanCommand {
+	string commandType;
+	char command;
+	float distance;
+	float angle;
+    };
+	
+    //#pragma DCPS_DATA_TYPE "SkyworthMsgs::MapPosData"
+    //地图及位置数据
+    //struct MapPosData {
+	  
+    //};
+
+    typedef char MapPicData[320*240*3];	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::MapLiveData"
+    //地图直播数据
+    struct MapLiveData {
+        MapPicData data;
+        //char mapPicData[320*240*3];
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::SlamManageStatus"
+    //建图导航管理状态
+    struct SlamManageStatus {
+        string statusType;
+	char status;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::SlamManageCmd"
+    //建图导航管理指令
+    struct SlamManageCmd {
+	string commandType;
+	char command;
+	float distance;
+	float angle;
+	DestXyzPoint destPoint;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::PatrolManageStatus"
+    //巡逻遍历状态
+    struct PatrolManageStatus {
+	string area;
+        string statusType;
+	char status;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::PatrolManageCmd"
+    //巡逻遍历指令
+    struct PatrolManageCmd {
+	string area;
+        string commandType;
+	char command;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::CleanManageStatus"
+    //清洁控制状态
+    struct CleanManageStatus {
+        string statusType;
+	char status;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::CleanManageCmd"
+    //清洁控制指令
+    struct CleanManageCmd {
+	EdgeXyzPoint point1;
+	EdgeXyzPoint point2;
+	EdgeXyzPoint point3;
+	EdgeXyzPoint point4;
+        string commandType;
+	char command;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::MapLiveCmd"
+    //地图直播控制指令
+    struct MapLiveCmd {
+        string commandType;
+	char command;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::CleanRouterStatus"
+    //保洁服务状态
+    struct CleanRouterStatus {
+        string statusType;
+	char status;
+    };
+	
+    #pragma DCPS_DATA_TYPE "SkyworthMsgs::CleanRouterCmd"
+    //保洁服务控制指令
+    struct CleanRouterCmd {
+	EdgeXyzPoint point1;
+	EdgeXyzPoint point2;
+	EdgeXyzPoint point3;
+	EdgeXyzPoint point4;
+	string area;
+        string commandType;
+	char command;
+    };
+	
+    //#pragma DCPS_DATA_TYPE "SkyworthMsgs::RgbLiveStream"
+    //直播视频流
+    //struct RgbLiveStream {
+	  
+    //};
+};

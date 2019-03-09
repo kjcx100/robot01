@@ -3,6 +3,8 @@
 #include "define.h"
 #include "include/image_process.h"
 
+#include "ddsothersensordata.h"
+
 //ImageProcessThread m_ImageProcessThread;
 //ImageDispThread m_ImageDispThread;
 BTCommunThread m_BTCommunThread;
@@ -15,6 +17,16 @@ int main(int argc, char *argv[])
 {
 	QApplication a(argc, argv);
     qDebug("main start!!!%d\n",__LINE__);
+	///////test
+	/*
+	for(int a = 0;a < argc ;a++)
+		printf("argc==%d, argv[]==%s\n",a, argv[a]);
+    DdsOtherSensorData pub(argc, argv);
+    pub.initPublisher();
+    sleep(1);
+    pub.sendData();
+    */
+	//*******test end********//
     //MainWindow w;
 	MainWindow m_mainwin;
     m_mainwin.show();    

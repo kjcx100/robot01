@@ -5,11 +5,14 @@
 #include <QFontDatabase>
 #include <QDebug>
 #include <qmath.h>
+#include <time.h>  
 
 
 #include "include/image_process.h"
 #include "../common/common.hpp"
 #include "mainwindow.h"
+
+#include "ddsothersensordata.h"
 
 using namespace std;
 using namespace cv;
@@ -27,6 +30,8 @@ char * g_imgtempImgBuf_3 = NULL;
 char *g_tmpbuffer_4 = NULL;
 char * g_imgtempImgBuf_4 = NULL;
 
+uint16_t g_Http_send_Data[CIRCLE_NUM];
+
 volatile bool exit_main;
 volatile bool save_frame;
 volatile bool save_rect_color;
@@ -37,6 +42,8 @@ extern int main_DistPointsLine[MAX_DEVNUM][DEEPIMG_DRAWPOINT];
 
 extern int g_is_point_OK;
 extern float SINX[90];
+extern int g_is_postdata_OK;
+
 
 
 cv::Mat g_cvimg;
@@ -148,6 +155,16 @@ void MY_SLEEP_NS(int s)
 	delay.tv_usec = 0;
 
 	select(0, NULL, NULL, NULL, &delay);
+}
+  
+//返回自系统开机以来的毫秒数（tick）  
+uint64_t GetTickCount()  
+{  
+    struct timespec ts;  
+  
+    clock_gettime(CLOCK_MONOTONIC, &ts);  
+  
+    return (ts.tv_sec * 1000 + ts.tv_nsec / 1000000);  
 }
 
 struct CallbackData {
@@ -850,9 +867,9 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		#if DEEP_DISTANSLINE
 		//*********////////////////
 		//以下，不滤波版本
-		//depthTrans_BarrierLine(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth,devcount);
-		//depthTrans_FindLine(mat_blur, devcount);
-		//GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.stPerCammer[devcount].GussBlurSize, st_SysParam.stPerCammer[devcount].GussBlurSize), 0, 0, BORDER_DEFAULT); 	
+		depthTrans_BarrierLine(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth,devcount);
+		depthTrans_FindLine(mat_blur, devcount);
+		GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.stPerCammer[devcount].GussBlurSize, st_SysParam.stPerCammer[devcount].GussBlurSize), 0, 0, BORDER_DEFAULT); 	
 		////******************///////////////
 		//以下，先滤波，不行
 		//GaussianBlur(depth, newDepth, Size(st_SysParam.stPerCammer[devcount].GussBlurSize, st_SysParam.stPerCammer[devcount].GussBlurSize), 0, 0, BORDER_DEFAULT);			
@@ -861,10 +878,10 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		//depthTrans_FindLine(TransDepth, devcount);
 		//*******************//
 		//以下，先中值，可以有效的去除椒盐噪声。
-		medianBlur(depth,newDepth,st_SysParam.stPerCammer[devcount].MidBlurSize);
-		depthTrans_BarrierLine(newDepth, (uint16_t*)tempdata, &mat_blur, &blackDepth,devcount);
-		depthTrans_FindLine(mat_blur, devcount);
-		GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.stPerCammer[devcount].GussBlurSize, st_SysParam.stPerCammer[devcount].GussBlurSize), 0, 0, BORDER_DEFAULT); 	
+		//medianBlur(depth,newDepth,st_SysParam.stPerCammer[devcount].MidBlurSize);
+		//depthTrans_BarrierLine(newDepth, (uint16_t*)tempdata, &mat_blur, &blackDepth,devcount);
+		//depthTrans_FindLine(mat_blur, devcount);
+		//GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.stPerCammer[devcount].GussBlurSize, st_SysParam.stPerCammer[devcount].GussBlurSize), 0, 0, BORDER_DEFAULT); 	
 		
 		#else
 		depthTransfer(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth);
@@ -1106,6 +1123,16 @@ void ImageProcessThread::run()
 	GetCammerSysParamFile(&g_SysParam);
 	CAMMER_PARA_S st_SysParam;
 	GetCammerSysParam(&st_SysParam);
+	//for pubdata 
+	int gargc = 3;
+	char* gargv[3];
+	gargv[0] = "main";
+	gargv[1] = "-DCPSConfigFile";
+	gargv[2] = "./rtps.ini";
+	for(int a = 0;a < gargc ;a++)
+		printf("argc==%d, argv[]==%s\n",a, gargv[a]);
+	DdsOtherSensorData g_pub_data(gargc, gargv);
+	g_pub_data.initPublisher();
 	
     qDebug("ImageProcessThread::run=%d\n",__LINE__);
 	{
@@ -1402,10 +1429,17 @@ void ImageProcessThread::run()
 				memcpy(&main_PointsLine[i], &m_PointsLine[i], sizeof(int)*DEEPIMG_WIDTH);
 				g_is_point_OK = 1;
 			}
-	        MY_SLEEP_MS(1);
-	        //usleep(2000);
-		}
-	}
+
+            if(g_is_postdata_OK)
+            {
+                g_is_postdata_OK = 0;
+                g_pub_data.sendData( g_Http_send_Data);
+                printf("g_pub_data.sendData tick==%d\n",(int)GetTickCount());
+            }
+            MY_SLEEP_MS(1);
+            //usleep(2000);
+        }
+    }
 	for(int i = 0; i < devnum; i++)
 	{
 		ASSERT_OK(TYStopCapture(cams[i].hDev));
