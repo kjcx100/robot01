@@ -14,6 +14,7 @@ geometry_msgs::Point32 point32;
 //opendds get the data, then send to ros
 void receivedData(const SkyworthMsgs::ObsData& msg) {
     pc.points.clear();
+	pc.header.stamp = ros::Time::now();
     for(int i = 0; i < 360; i++) {
         point32.x = msg.pointList[i].x;
         point32.y = msg.pointList[i].y;

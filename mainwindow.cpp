@@ -165,7 +165,7 @@ MainWindow::MainWindow(QWidget *parent) :
     if(pTimer500ms)
     {
         connect( pTimer500ms, SIGNAL(timeout()), this, SLOT(call_timerDone_500ms()));
-        pTimer500ms->start(150);              // 50ms单触发定时器
+        pTimer500ms->start(50);              // 50ms单触发定时器
     }
     //Time  1s
     pTimer1S = new QTimer(this);

@@ -488,7 +488,8 @@ void ImageProcessThread::depthTrans_FindLine(cv::Mat Transdepth ,int devcount)
 				{
 					Has_distrans = 1;
 					m_DistansLine[devcount][j] = src_data[j + ii*DEEPIMG_WIDTH];
-					m_DistansLine[devcount][j] = m_DistansLine[devcount][j]*sin((int)((DEEPIMG_HEIGHT - ii)/10 + st_SysParam.stPerCammer[devcount].EditVer_Angl-23));
+					if(devcount != 4)
+						m_DistansLine[devcount][j] = m_DistansLine[devcount][j]*sin((int)((DEEPIMG_HEIGHT - ii)/10 + st_SysParam.stPerCammer[devcount].EditVer_Angl-23));
 				}
 			}
 		}
@@ -867,8 +868,10 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		#if DEEP_DISTANSLINE
 		//*********////////////////
 		//以下，不滤波版本
+		//printf("depthTrans_BarrierLine start tick==%d\n",(int)GetTickCount());
 		depthTrans_BarrierLine(depth, (uint16_t*)tempdata, &mat_blur, &blackDepth,devcount);
-		depthTrans_FindLine(mat_blur, devcount);
+		depthTrans_FindLine(mat_blur, devcount);		
+		//printf("depthTrans_FindLine end tick==%d\n",(int)GetTickCount());
 		GaussianBlur(mat_blur, TransDepth, Size(st_SysParam.stPerCammer[devcount].GussBlurSize, st_SysParam.stPerCammer[devcount].GussBlurSize), 0, 0, BORDER_DEFAULT); 	
 		////******************///////////////
 		//以下，先滤波，不行
@@ -898,25 +901,28 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 				//save_frame = false;
 			}
 		#endif
-		//lxl add output grayimg
-		pData->render.SetColorType(DepthRender::COLORTYPE_BLUERED);//(DepthRender::COLORTYPE_GRAY);
-		cv::Mat depthColor = pData->render.Compute(TransDepth);
-		//lxl modify 2018-12-27 直接显示deep原图
-		cv::Mat RawdepthColor = pData->render.Compute(depth);
+		
 		if(st_SysParam.CurrentCam <= 0)
 			st_SysParam.CurrentCam = 0;
-		if(0 == st_SysParam.CurrentCam)
+		if(0 == st_SysParam.CurrentCam && st_SysParam.IsApplyCam01)
 			ID = st_SysParam.id1;
-		else if(1 == st_SysParam.CurrentCam)
+		else if(1 == st_SysParam.CurrentCam && st_SysParam.IsApplyCam02)
 			ID = st_SysParam.id2;
-		else if(2 == st_SysParam.CurrentCam)
+		else if(2 == st_SysParam.CurrentCam && st_SysParam.IsApplyCam03)
 			ID = st_SysParam.id3;
-		else if(3 == st_SysParam.CurrentCam)
+		else if(3 == st_SysParam.CurrentCam && st_SysParam.IsApplyCam04)
 			ID = st_SysParam.id4;
-		else if(4 == st_SysParam.CurrentCam)
+		else if(4 == st_SysParam.CurrentCam && st_SysParam.IsApplyCam05)
 			ID = st_SysParam.id5;
+		else
+			ID = "null";
 		if(0 == strcmp(pData->sn,ID))
 		{
+			//lxl add output grayimg
+			pData->render.SetColorType(DepthRender::COLORTYPE_BLUERED);//(DepthRender::COLORTYPE_GRAY);
+			cv::Mat depthColor = pData->render.Compute(TransDepth);
+			//lxl modify 2018-12-27 直接显示deep原图
+			cv::Mat RawdepthColor = pData->render.Compute(depth);
 			g_cvdeepimg = RawdepthColor.clone();
 			emit EmitFrameMessage(&g_cvdeepimg,0);
 			#if DEEP_DISTANSLINE	
@@ -949,22 +955,22 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 			//printf("###[%s][%d], EmitFrameMessage\n", __func__, __LINE__);
 			g_cvRawTempimg = depthColor.clone();
 			emit EmitRawTempMessage(&g_cvRawTempimg,0);
-		}
-		if (save_frame){
-			LOGD(">>>>>>>>>> write depthColor");
-			imwrite("TransdepthColor.png", depthColor);
-			//save_frame = false;
-		}
-		//g_cvdeepimg = depthColor.clone();	//lxl modify 2018-12-27
-		//depthColor = depthColor / 2 + resized_color / 2;
-		#if CVIMGSHOW
-		cv::imshow("projected depth", depthColor);
-		#endif
-		//std::cout << "depthColor.channels:" << depthColor.channels() << "  rows:" << depthColor.rows << "  cols:" << depthColor.cols << std::endl;
-		if (save_frame){
-			LOGD(">>>>>>>>>> write projected_depth");
-			imwrite("projected_depth.png", depthColor);
-			//save_frame = false;
+			if (save_frame){
+				LOGD(">>>>>>>>>> write depthColor");
+				imwrite("TransdepthColor.png", depthColor);
+				//save_frame = false;
+			}
+			//g_cvdeepimg = depthColor.clone();	//lxl modify 2018-12-27
+			//depthColor = depthColor / 2 + resized_color / 2;
+			#if CVIMGSHOW
+			cv::imshow("projected depth", depthColor);
+			#endif
+			//std::cout << "depthColor.channels:" << depthColor.channels() << "  rows:" << depthColor.rows << "  cols:" << depthColor.cols << std::endl;
+			if (save_frame){
+				LOGD(">>>>>>>>>> write projected_depth");
+				imwrite("projected_depth.png", depthColor);
+				//save_frame = false;
+			}
 		}
 		//DeepImgFinds_write_rgb(depthColor,resized_color, 3, 7, 7);
 		#if DEEP_DISTANSLINE
@@ -1042,7 +1048,7 @@ void ImageProcessThread::handleFrame(TY_FRAME_DATA* frame, void* userdata ,void*
 		save_rect_color = false;
 		gsave_rect_count++;
 	}
-
+	//printf("start TYEnqueueBuffer tick==%d\n",(int)GetTickCount());
 	//LOGD("=== Callback: Re-enqueue buffer(%p, %d)", frame->userBuffer, frame->bufferSize);
 	ASSERT_OK(TYEnqueueBuffer(pData->hDev, frame->userBuffer, frame->bufferSize));
 }
@@ -1371,9 +1377,11 @@ void ImageProcessThread::run()
 		for(int i = 0; i < cams.size(); i++) 
 		{
 			//TY_FRAME_DATA frame;
+			
 			int err = 0;
 			if(1)//(i == st_SysParam.CurrentCam)
 				err = TYFetchFrame(cams[i].hDev, &cams[i].frame, 1000);
+			//printf("end TYFetchFrame time i==%d,tick==%d\n",i,(int)GetTickCount());
 			if (err != TY_STATUS_OK) {
 				LOGE("Fetch frame error %d at cams[%d]: %s", err,i, TYErrorString(err));
 				break;
@@ -1390,7 +1398,8 @@ void ImageProcessThread::run()
 				handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf_3 ,st_SysParam ,3);
 			else if(0 == strcmp(cams[i].sn,st_SysParam.id5))
 				handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf_4 ,st_SysParam ,4);
-				
+
+			//printf("end handleFrame time i==%d,tick==%d\n",i,(int)GetTickCount());
 			/*
 				if(0 == i)
 	            	handleFrame(&cams[i].frame, &cams[i] , (void*)g_imgtempImgBuf_0 ,st_SysParam ,i);
@@ -1429,13 +1438,13 @@ void ImageProcessThread::run()
 				memcpy(&main_PointsLine[i], &m_PointsLine[i], sizeof(int)*DEEPIMG_WIDTH);
 				g_is_point_OK = 1;
 			}
-
             if(g_is_postdata_OK)
             {
                 g_is_postdata_OK = 0;
                 g_pub_data.sendData( g_Http_send_Data);
-                printf("g_pub_data.sendData tick==%d\n",(int)GetTickCount());
+                //printf("g_pub_data.sendData tick==%d\n",(int)GetTickCount());
             }
+			//printf("run image time i==%d,tick==%d\n",i,(int)GetTickCount());
             MY_SLEEP_MS(1);
             //usleep(2000);
         }
